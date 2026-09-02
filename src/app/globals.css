@@ -1,26 +1,287 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* ==========================================================================
+   NEON ARCHIVE - synthwave palette, after the daisyUI `synthwave` theme.
+   The site is dark-only by design, so the palette lives on :root and <html>
+   carries `.dark` purely so shadcn `dark:` variants resolve. Every value
+   below is a shadcn token name, which is why the stock shadcn components
+   come out themed without being edited.
+   ========================================================================== */
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* --- raw palette ------------------------------------------------------ */
+  --sw-void: #120b2e; /* deepest, behind everything */
+  --sw-base: #1a103d; /* page background */
+  --sw-surface: #251a4a; /* raised card */
+  --sw-surface-2: #2f2259; /* hover / nested surface */
+  --sw-line: #3d2f73; /* hairline borders */
+
+  --sw-pink: #e779c1; /* primary     */
+  --sw-cyan: #58c7f3; /* secondary   */
+  --sw-amber: #f3cc30; /* accent      */
+  --sw-mint: #71ead2; /* success     */
+  --sw-violet: #b48ef5; /* extra       */
+  --sw-red: #e24056; /* destructive */
+
+  --sw-text: #f9f7fd;
+  --sw-text-dim: #a99fd0;
+
+  /* --- shadcn tokens ---------------------------------------------------- */
+  --background: var(--sw-base);
+  --foreground: var(--sw-text);
+
+  --card: var(--sw-surface);
+  --card-foreground: var(--sw-text);
+  --popover: #221749;
+  --popover-foreground: var(--sw-text);
+
+  --primary: var(--sw-pink);
+  --primary-foreground: #2a0a20;
+  --secondary: var(--sw-surface-2);
+  --secondary-foreground: var(--sw-text);
+
+  --muted: #241a49;
+  --muted-foreground: var(--sw-text-dim);
+  --accent: var(--sw-surface-2);
+  --accent-foreground: var(--sw-cyan);
+
+  --destructive: var(--sw-red);
+  --border: color-mix(in oklab, var(--sw-line) 85%, transparent);
+  --input: color-mix(in oklab, var(--sw-line) 70%, transparent);
+  --ring: var(--sw-pink);
+
+  /* Categorical ramp for data marks. Same five hues as the UI accents above,
+     but re-stepped into the OKLCH lightness band 0.48-0.67 that dark-surface
+     marks need: the neon accents sit at L 0.72-0.86, which is fine for text
+     and borders and too light and too uneven for a bar chart.
+     Validated against surface #251a4a - lightness band, chroma floor,
+     deutan/protan separation (worst adjacent pair dE 10.3), normal-vision
+     floor (17.7) and 3:1 contrast all pass. Assign in this order; never
+     cycle. */
+  --chart-1: #d43691; /* pink   */
+  --chart-2: #00a3d4; /* cyan   */
+  --chart-3: #b98d00; /* amber  */
+  --chart-4: #00a983; /* mint   */
+  --chart-5: #8d52db; /* violet */
+
+  --radius: 0.5rem;
+
+  --sidebar: var(--sw-surface);
+  --sidebar-foreground: var(--sw-text);
+  --sidebar-primary: var(--sw-pink);
+  --sidebar-primary-foreground: #2a0a20;
+  --sidebar-accent: var(--sw-surface-2);
+  --sidebar-accent-foreground: var(--sw-cyan);
+  --sidebar-border: var(--sw-line);
+  --sidebar-ring: var(--sw-pink);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-inter);
+  --font-heading: var(--font-space-grotesk);
+  --font-mono: var(--font-jetbrains-mono);
+
+  --color-sw-void: var(--sw-void);
+  --color-sw-base: var(--sw-base);
+  --color-sw-surface: var(--sw-surface);
+  --color-sw-surface-2: var(--sw-surface-2);
+  --color-sw-line: var(--sw-line);
+  --color-sw-pink: var(--sw-pink);
+  --color-sw-cyan: var(--sw-cyan);
+  --color-sw-amber: var(--sw-amber);
+  --color-sw-mint: var(--sw-mint);
+  --color-sw-violet: var(--sw-violet);
+  --color-sw-red: var(--sw-red);
+  --color-sw-text: var(--sw-text);
+  --color-sw-text-dim: var(--sw-text-dim);
+
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  html {
+    @apply font-sans;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    /* Two soft neon blooms over the base colour, fixed so they stay put while
+       the page scrolls. The horizon grid in .sw-grid sits on top of this. */
+    background-image:
+      radial-gradient(
+        62rem 40rem at 12% -8%,
+        color-mix(in oklab, var(--sw-pink) 22%, transparent),
+        transparent 70%
+      ),
+      radial-gradient(
+        55rem 34rem at 92% 4%,
+        color-mix(in oklab, var(--sw-cyan) 16%, transparent),
+        transparent 70%
+      );
+    background-attachment: fixed;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    @apply font-heading tracking-tight;
+  }
+
+  /* Scrollbars, including the ones inside the scrolling table panels. The
+     browser default is near-white and reads as a bright seam on this palette. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--sw-line) transparent;
+  }
+
+  ::-webkit-scrollbar {
+    width: 0.625rem;
+    height: 0.625rem;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    border: 3px solid transparent;
+    border-radius: 999px;
+    background-clip: content-box;
+    background-color: var(--sw-line);
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: color-mix(in oklab, var(--sw-pink) 55%, var(--sw-line));
+  }
+
+  /* Stream counts, years and ranks are all read as comparisons down a column,
+     so they get tabular figures that line up digit for digit. */
+  .tnum {
+    font-variant-numeric: tabular-nums;
+    @apply font-mono;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer components {
+  /* The synthwave signature: a horizon grid receding to a vanishing point.
+     Decorative only, and kept faint enough not to fight body text. */
+  .sw-grid {
+    position: absolute;
+    inset: auto 0 0 0;
+    height: 22rem;
+    pointer-events: none;
+    background-image:
+      linear-gradient(
+        to right,
+        color-mix(in oklab, var(--sw-cyan) 26%, transparent) 1px,
+        transparent 1px
+      ),
+      linear-gradient(
+        to bottom,
+        color-mix(in oklab, var(--sw-pink) 26%, transparent) 1px,
+        transparent 1px
+      );
+    background-size: 4rem 4rem;
+    transform: perspective(20rem) rotateX(72deg);
+    transform-origin: bottom;
+    mask-image: linear-gradient(to top, #000 5%, transparent 85%);
+  }
+
+  /* Text glow, used sparingly: wordmark and section eyebrows only. */
+  .sw-glow-pink {
+    text-shadow:
+      0 0 0.5rem color-mix(in oklab, var(--sw-pink) 55%, transparent),
+      0 0 1.6rem color-mix(in oklab, var(--sw-pink) 30%, transparent);
+  }
+
+  .sw-glow-cyan {
+    text-shadow:
+      0 0 0.5rem color-mix(in oklab, var(--sw-cyan) 55%, transparent),
+      0 0 1.6rem color-mix(in oklab, var(--sw-cyan) 30%, transparent);
+  }
+
+  /* Card lift on hover: border brightens, a low bloom appears underneath. */
+  .sw-card {
+    @apply border-sw-line/70 bg-sw-surface/70 backdrop-blur-sm transition-all duration-300;
+  }
+
+  .sw-card:hover {
+    border-color: color-mix(in oklab, var(--sw-pink) 55%, transparent);
+    box-shadow:
+      0 0 0 1px color-mix(in oklab, var(--sw-pink) 18%, transparent),
+      0 1rem 2.5rem -1rem color-mix(in oklab, var(--sw-pink) 45%, transparent);
+  }
+
+  .sw-rule {
+    background-image: linear-gradient(
+      to right,
+      transparent,
+      color-mix(in oklab, var(--sw-pink) 60%, transparent),
+      color-mix(in oklab, var(--sw-cyan) 60%, transparent),
+      transparent
+    );
+    height: 1px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

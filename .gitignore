@@ -39,3 +39,27 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# --- project-specific ---
+
+# Local secrets. Vercel gets these through Project Settings -> Environment
+# Variables instead; .env.example documents which keys are required.
+.env
+.env.local
+.env*.local
+
+# Coursework dataset. The CSV is only needed to run `npm run seed`, which
+# loads it into Supabase; the deployed site reads Supabase, never this file.
+# Kaggle's terms also discourage redistributing the raw download.
+/data/*.csv
+!/data/README.md
+
+# Editor / OS noise
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Vercel CLI
+.vercel
