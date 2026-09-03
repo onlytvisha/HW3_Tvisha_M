@@ -387,6 +387,45 @@
     background-image: none;
     background-color: var(--sw-line);
   }
+
+  /* ---------------------------------------------------------------------- */
+  /* Now playing. --np-level is the current loudness, 0-1, written onto the
+     player card once a frame by the spectrum canvas - so the sleeve answers
+     the actual track rather than a fixed keyframe loop, without React
+     re-rendering sixty times a second. */
+
+  .np-card {
+    --np-level: 0;
+  }
+
+  .np-art {
+    /* Ceilinged well under a pixel of visible travel at the edges: the sleeve
+       should read as breathing with the track, not bouncing. */
+    transform: scale(calc(1 + var(--np-level) * 0.035));
+    box-shadow:
+      0 0.5rem 1.5rem -0.75rem
+        color-mix(
+          in oklab,
+          var(--sw-pink) calc(var(--np-level) * 60%),
+          transparent
+        ),
+      0 0 0 1px
+        color-mix(
+          in oklab,
+          var(--sw-pink) calc(var(--np-level) * 35%),
+          transparent
+        );
+    /* Short, so it smooths the frame-to-frame steps without lagging the beat. */
+    transition:
+      transform 90ms linear,
+      box-shadow 90ms linear;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .np-art {
+      transform: none;
+    }
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

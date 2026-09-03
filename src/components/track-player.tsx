@@ -1,8 +1,9 @@
 "use client";
 
 import { ExternalLink, Music4, Pause, Play, Volume2 } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
+import { AudioSpectrum } from "@/components/audio-spectrum";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -18,9 +19,16 @@ import type { ArtistProfile } from "@/lib/types";
  */
 export function TrackPlayer({ profile }: { profile: ArtistProfile }) {
   const audioRef = useRef<HTMLAudioElement>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
   const [playing, setPlaying] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [duration, setDuration] = useState(0);
+
+  // The spectrum needs the element marked crossorigin, and both preview CDNs
+  // send the header for it. If one ever stops, the request fails outright
+  // rather than degrading, so a load error drops the attribute and retries
+  // once: the visualiser is worth having, never at the cost of the audio.
+  const [allowAnalysis, setAllowAnalysis] = useState(true);
 
   // Reset the transport if this component is handed a different track.
   // Adjusted during render rather than in an effect, so a stale progress bar
@@ -31,7 +39,42 @@ export function TrackPlayer({ profile }: { profile: ArtistProfile }) {
     setLastSrc(src);
     setPlaying(false);
     setElapsed(0);
+    setAllowAnalysis(true);
   }
+
+  // Space toggles the preview, the way it does in every music player. Ignored
+  // while the listener is in a field or on another control, so it never steals
+  // the key from the archive search box or from activating a focused button.
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.code !== "Space" || event.metaKey || event.ctrlKey) return;
+
+      const target = event.target as HTMLElement | null;
+      if (
+        target?.isContentEditable ||
+        ["INPUT", "TEXTAREA", "SELECT", "BUTTON", "A"].includes(
+          target?.tagName ?? "",
+        )
+      ) {
+        return;
+      }
+
+      const audio = audioRef.current;
+      if (!audio) return;
+
+      event.preventDefault(); // otherwise the page jumps a screen
+      if (audio.paused) {
+        void audio.play();
+        setPlaying(true);
+      } else {
+        audio.pause();
+        setPlaying(false);
+      }
+    }
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   if (!profile.top_track_name) {
     return (
@@ -73,15 +116,18 @@ export function TrackPlayer({ profile }: { profile: ArtistProfile }) {
   const progress = duration > 0 ? (elapsed / duration) * 100 : 0;
 
   return (
-    <Card className="sw-card overflow-hidden">
+    <Card ref={cardRef} className="sw-card np-card overflow-hidden">
       <CardContent className="px-5">
         <div className="flex items-start gap-4">
           {profile.top_track_image && (
+            // The sleeve carries the loudness: --np-level is written straight
+            // onto the card by the spectrum, so it tracks the audio without a
+            // React render a frame.
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={profile.top_track_image}
               alt=""
-              className="size-20 shrink-0 rounded-lg object-cover shadow-lg"
+              className="np-art size-20 shrink-0 rounded-lg object-cover shadow-lg"
               loading="lazy"
             />
           )}
@@ -156,6 +202,18 @@ export function TrackPlayer({ profile }: { profile: ArtistProfile }) {
               </Button>
 
               <div className="min-w-0 flex-1">
+                {/* The spectrum sits above the scrub bar and collapses to
+                    nothing when stopped, so the card does not change height
+                    or reserve empty space on a page nobody has played yet. */}
+                <AudioSpectrum
+                  audioRef={audioRef}
+                  playing={playing}
+                  levelTarget={cardRef}
+                  className={`block w-full transition-all duration-500 ${
+                    playing ? "mb-2 h-9" : "mb-0 h-0"
+                  }`}
+                />
+
                 {/* Clickable scrub area, padded vertically so the hit target is
                     comfortably bigger than the 6px bar it contains. */}
                 <div
@@ -179,6 +237,9 @@ export function TrackPlayer({ profile }: { profile: ArtistProfile }) {
                   <span className="inline-flex items-center gap-1.5">
                     <Volume2 className="size-3" aria-hidden="true" />
                     30-second preview
+                    <kbd className="border-sw-line bg-sw-surface-2/60 ml-1 hidden rounded border px-1.5 py-px font-sans text-[0.625rem] sm:inline">
+                      space
+                    </kbd>
                   </span>
                   <span className="tnum">
                     {formatTime(elapsed)} / {formatTime(duration)}
@@ -188,11 +249,20 @@ export function TrackPlayer({ profile }: { profile: ArtistProfile }) {
             </div>
 
             <audio
+              // Keying on the mode forces a fresh element for the retry
+              // below - crossOrigin is only read when the source is loaded.
+              key={allowAnalysis ? "cors" : "plain"}
               ref={audioRef}
               src={src}
+              crossOrigin={allowAnalysis ? "anonymous" : undefined}
               preload="metadata"
               onLoadedMetadata={(e) => setDuration(e.currentTarget.duration)}
               onTimeUpdate={(e) => setElapsed(e.currentTarget.currentTime)}
+              onError={() => {
+                // First failure may be the crossorigin request being refused.
+                // Drop it and try again plainly: no spectrum, but it plays.
+                if (allowAnalysis) setAllowAnalysis(false);
+              }}
               onEnded={() => {
                 setPlaying(false);
                 setElapsed(0);

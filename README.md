@@ -33,12 +33,27 @@ publishes a popularity rank. Two of its quirks are worked around in
   then most fans.
 - `/artist/{id}/top` is neither sorted by rank nor filtered to the artist,
   despite the name. Lead tracks beat features, then highest rank wins.
+- Preview URLs are signed and **expire after 15 minutes**, against a cache
+  that holds rows for a week — so a stored Deezer URL is dead for all but the
+  first few minutes of the row's life, and the CDN answers an expired one
+  with a 403 that surfaces as a silent failure on the play button.
 
 **iTunes** supplies the genre tag (Apple files each artist under one clean
-canonical label) and stands in for the track if Deezer draws a blank. It
-cannot answer the ranking question: no iTunes endpoint exposes a popularity
-score, and both the lookup and search orderings blend relevance with recency,
-which is how you end up offering a Future song as Drake's biggest.
+canonical label) and, once Deezer has named the track, the **audio** for it:
+Apple's preview URLs carry no signature and no expiry, so they stay good as
+long as the cached row does. What Apple cannot answer is the ranking
+question — no iTunes endpoint exposes a popularity score, and both the lookup
+and search orderings blend relevance with recency, which is how you end up
+offering a Future song as Drake's biggest.
+
+So the two are split by what each is actually good for: **Deezer decides
+which track, Apple provides the file.** The track title has to match and the
+credited artist has to line up, otherwise the lookup returns nothing rather
+than a near-miss — a search for Bad Bunny's "DÁKITI" surfaces a lullaby cover
+by Rockabye Baby!, and a wrong recording is worse than the fallback. When
+Apple has no match, Deezer's own URL is used and re-minted on read whenever
+the signature in it has expired, which costs one API call and never a dead
+player.
 
 **Wikipedia** supplies the description. Picking the right article is the
 awkward part — a bare name lands on a colour for *Pink* and a disambiguation
@@ -60,6 +75,23 @@ and too light and too uneven for chart marks; the chart ramp re-steps the same
 five hues into the 0.48–0.67 band and is validated for the lightness band,
 chroma floor, deuteranopia/protanopia separation (worst adjacent pair ΔE 10.3),
 normal-vision separation (17.7) and 3:1 contrast against the card surface.
+
+### The player
+
+The preview is routed through a Web Audio `AnalyserNode`, so the bars above
+the scrub bar are the track's actual frequency bins rather than a loop on a
+timer — quiet passages sit low, the drop jumps. That needs the audio element
+marked `crossorigin`, which both preview CDNs allow; if one ever stops
+sending the header the element would fail outright, so a load error drops the
+attribute and retries once. The visualiser is worth having, never at the cost
+of the audio.
+
+The same read is written to the card as `--np-level` once a frame, which is
+what makes the sleeve breathe with the track — a CSS custom property rather
+than React state, so nothing re-renders sixty times a second. Space toggles
+playback, ignored while a field or another control has focus. The canvas has
+zero height until the first play, so a page nobody has played looks exactly
+as it did, and `prefers-reduced-motion` skips the animation entirely.
 
 ### Two themes
 
