@@ -49,11 +49,18 @@ function normalize(s: string): string {
     .trim();
 }
 
-async function getJson<T>(path: string): Promise<T | null> {
+async function getJson<T>(
+  path: string,
+  /** Skip Next's fetch cache. Only the preview re-mint needs this: a cached
+      response would hand back the same expired URL it was called to replace. */
+  fresh = false,
+): Promise<T | null> {
   try {
     const res = await fetch(`${API}${path}`, {
       headers: { "User-Agent": "NeonArchive/1.0 (student coursework project)" },
-      next: { revalidate: 86400 },
+      ...(fresh
+        ? { cache: "no-store" as const }
+        : { next: { revalidate: 86400 } }),
     });
     if (!res.ok) return null;
 
@@ -117,6 +124,38 @@ type RawTrack = {
   artist?: { id: number };
   album?: { title?: string; cover_xl?: string; cover_big?: string };
 };
+
+/**
+ * Whether a Deezer preview URL has passed the expiry baked into its signature.
+ *
+ * Deezer signs preview URLs with `hdnea=exp=<unix seconds>` and honours them
+ * for 15 minutes. Profiles are cached for a week, so a stored Deezer URL is
+ * expired for all but the first few minutes of the row's life, and the CDN
+ * answers an expired one with a 403 HTML body - which reaches the listener as
+ * a silent MEDIA_ELEMENT_ERROR on the play button.
+ *
+ * Anything unparseable counts as expired: re-minting costs one API call, and
+ * being wrong the other way costs a dead player.
+ */
+export function isPreviewUrlExpired(url: string): boolean {
+  if (!url.includes("dzcdn.net")) return false; // Apple's URLs never expire
+
+  const exp = /[?&]hdnea=exp=(\d+)/.exec(url)?.[1];
+  if (!exp) return true;
+
+  return Number(exp) * 1000 <= Date.now();
+}
+
+/** The track id out of a Deezer track link, for re-minting a preview URL. */
+export function trackIdFromUrl(url: string): string | null {
+  return /deezer\.com\/track\/(\d+)/.exec(url)?.[1] ?? null;
+}
+
+/** A freshly signed preview URL for one track. Good for 15 minutes. */
+export async function getTrackPreview(trackId: string): Promise<string | null> {
+  const track = await getJson<{ preview?: string }>(`/track/${trackId}`, true);
+  return track?.preview || null;
+}
 
 /**
  * The artist's biggest track.

@@ -15,9 +15,15 @@ import "server-only";
 
 import { cache } from "react";
 
-import { getArtistWithTopTrack as getDeezer } from "@/lib/deezer";
+import {
+  getArtistWithTopTrack as getDeezer,
+  getTrackPreview,
+  isPreviewUrlExpired,
+  trackIdFromUrl,
+} from "@/lib/deezer";
 import {
   findArtist as findItunesArtist,
+  findTrackPreview,
   getArtistWithTopTrack as getItunes,
 } from "@/lib/itunes";
 import { getServiceClient, supabase } from "@/lib/supabase";
@@ -81,6 +87,15 @@ async function buildProfile(artist: Artist): Promise<ArtistProfile> {
 
   const provider = deezerTrack ? "Deezer" : appleTrack ? "Apple Music" : null;
 
+  // Deezer picked the track; Apple is asked for the audio. Deezer's preview
+  // URLs are signed and die after 15 minutes, which is nothing against a
+  // seven-day cache - a row would spend almost its whole life pointing at a
+  // URL that 403s. Apple's carry no expiry, so they survive as long as the
+  // row. Deezer's URL stays as the fallback, and is re-minted on read.
+  const appleAudio = deezerTrack
+    ? await findTrackPreview(artist.name, deezerTrack.title)
+    : null;
+
   return {
     artist_id: artist.id,
     provider,
@@ -106,7 +121,10 @@ async function buildProfile(artist: Artist): Promise<ArtistProfile> {
     top_track_album: deezerTrack?.album ?? appleTrack?.album ?? null,
     top_track_image: deezerTrack?.coverUrl ?? appleTrack?.artworkUrl ?? null,
     top_track_preview_url:
-      deezerTrack?.previewUrl ?? appleTrack?.previewUrl ?? null,
+      appleAudio?.previewUrl ??
+      deezerTrack?.previewUrl ??
+      appleTrack?.previewUrl ??
+      null,
     top_track_url: deezerTrack?.url ?? appleTrack?.url ?? null,
     top_track_rank: deezerTrack?.rank ?? null,
 
@@ -116,6 +134,41 @@ async function buildProfile(artist: Artist): Promise<ArtistProfile> {
 
     fetched_at: new Date().toISOString(),
   };
+}
+
+/**
+ * Re-mints an expired Deezer preview URL in place.
+ *
+ * Rows written before Apple became the audio source - and the handful where
+ * Apple has no match for the track - still point at a signed Deezer URL that
+ * only lived 15 minutes. Rather than rebuild the whole profile (five
+ * outbound calls, and the bio and fan count have not gone anywhere), this
+ * replaces the one field that goes stale, for the price of a single call.
+ */
+async function refreshPreviewUrl(
+  artist: Artist,
+  profile: ArtistProfile,
+): Promise<ArtistProfile> {
+  const url = profile.top_track_preview_url;
+  if (!url || !isPreviewUrlExpired(url)) return profile;
+
+  const trackId = profile.top_track_url
+    ? trackIdFromUrl(profile.top_track_url)
+    : null;
+
+  // Prefer a permanent Apple URL, so this is the last time this row needs it.
+  const apple = profile.top_track_name
+    ? await findTrackPreview(artist.name, profile.top_track_name)
+    : null;
+
+  const fresh =
+    apple?.previewUrl ?? (trackId ? await getTrackPreview(trackId) : null);
+
+  if (!fresh) return profile;
+
+  const updated = { ...profile, top_track_preview_url: fresh };
+  await writeCache(updated);
+  return updated;
 }
 
 /**
@@ -130,7 +183,7 @@ export async function getArtistProfile(
 ): Promise<ArtistProfile> {
   if (!force) {
     const cached = await readCache(artist.id);
-    if (cached && isFresh(cached)) return cached;
+    if (cached && isFresh(cached)) return refreshPreviewUrl(artist, cached);
   }
 
   const profile = await buildProfile(artist);

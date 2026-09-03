@@ -110,6 +110,57 @@ export async function findArtist(name: string): Promise<ItunesArtist | null> {
 }
 
 /**
+ * A permanent preview URL for one named track.
+ *
+ * This exists because of a mismatch between the two sources. Deezer decides
+ * *which* track is biggest - it is the only one that publishes a rank - but
+ * its preview URLs are signed and expire 15 minutes after they are minted,
+ * while profiles are cached for a week. Apple's preview URLs carry no
+ * signature and no expiry, so once Deezer has named the track, the audio for
+ * it is fetched from Apple and survives in the cache as long as the row does.
+ *
+ * Returns null rather than a near-miss: a wrong song is worse than the
+ * caller falling back to Deezer's short-lived URL.
+ */
+export async function findTrackPreview(
+  artistName: string,
+  trackName: string,
+): Promise<{ previewUrl: string; artworkUrl: string | null } | null> {
+  const data = await getJson<{ results: RawResult[] }>(
+    `${SEARCH}?term=${encodeURIComponent(`${artistName} ${trackName}`)}` +
+      `&entity=song&limit=15`,
+  );
+
+  const target = normalize(trackName);
+  const artist = normalize(artistName);
+
+  const match = (data?.results ?? []).find((r) => {
+    if (!r.previewUrl || !r.trackName) return false;
+
+    // Apple appends parentheticals to titles - "One Dance (feat. Wizkid)" for
+    // Deezer's "One Dance" - so an exact match is too strict. The bare title
+    // has to be the whole name or its opening, which keeps "One Dance" from
+    // matching "One Dance Away" while still allowing the feature credit.
+    const candidate = normalize(r.trackName);
+    const titleMatches =
+      candidate === target || candidate.startsWith(`${target} (`);
+
+    // The search blends in other artists' covers of the same song, so the
+    // credited artist has to line up too.
+    const artistMatches = normalize(r.artistName ?? "").includes(artist);
+
+    return titleMatches && artistMatches;
+  });
+
+  if (!match?.previewUrl) return null;
+
+  return {
+    previewUrl: match.previewUrl,
+    artworkUrl: match.artworkUrl100?.replace("100x100", "600x600") ?? null,
+  };
+}
+
+/**
  * The artist, plus their biggest song that actually has a playable preview.
  *
  * Apple returns an artist's songs in popularity order, so we walk the list and
