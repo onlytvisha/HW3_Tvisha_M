@@ -4,6 +4,7 @@ import { Inter, JetBrains_Mono, Space_Grotesk } from "next/font/google";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { THEME_INIT_SCRIPT } from "@/lib/theme";
 
 import "./globals.css";
 
@@ -42,9 +43,9 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     // Three things live on <html> rather than <body>:
-    //   `dark`         fixed on, not toggled - the synthwave palette is the
-    //                  only theme, and the class is what makes shadcn's
-    //                  `dark:` variants resolve.
+    //   `dark`         the synthwave default. Removed by the theme switch,
+    //                  since it is what makes shadcn's `dark:` variants
+    //                  resolve and those are wrong on the paper palette.
     //   font vars      globals.css applies `font-sans` to the html element,
     //                  and a variable declared on <body> is invisible to its
     //                  own parent, which silently drops the page back to the
@@ -53,11 +54,21 @@ export default function RootLayout({
     //                  during route changes unless asked; without this every
     //                  navigation smooth-scrolls to the top instead of
     //                  landing there.
+    //
+    // suppressHydrationWarning is scoped to this one element and is load
+    // bearing: the init script below rewrites className and data-theme
+    // before React hydrates, so the server and client markup legitimately
+    // disagree here and nowhere else.
     <html
       lang="en"
       className={`dark ${inter.variable} ${spaceGrotesk.variable} ${jetBrainsMono.variable}`}
       data-scroll-behavior="smooth"
+      suppressHydrationWarning
     >
+      <head>
+        {/* Must run before first paint - see THEME_INIT_SCRIPT. */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+      </head>
       <body className="min-h-dvh">
         <TooltipProvider delayDuration={200}>
           <div className="relative flex min-h-dvh flex-col">

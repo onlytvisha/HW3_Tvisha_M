@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 
+import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -59,8 +60,12 @@ export function SiteHeader() {
           ))}
         </nav>
 
+        {/* ml-auto on mobile, where the nav that normally carries it is
+            hidden; on desktop the nav has already pushed the group right. */}
+        <ThemeToggle className="ml-auto md:ml-0" />
+
         <Sheet open={open} onOpenChange={setOpen}>
-          <SheetTrigger asChild className="ml-auto md:hidden">
+          <SheetTrigger asChild className="md:hidden">
             <Button variant="ghost" size="icon" aria-label="Open menu">
               <Menu className="size-5" />
             </Button>

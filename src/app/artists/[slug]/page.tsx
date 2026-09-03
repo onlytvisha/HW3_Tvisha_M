@@ -186,7 +186,11 @@ export default async function ArtistPage({
                 {
                   label: "Collaborative",
                   value: collab,
-                  color: "var(--chart-1)",
+                  // chart-5, not chart-1: slots 4 and 1 are the one pair in
+                  // the ramp that collapses under deuteranopia (dE 5.6),
+                  // and this bar puts them directly against each other.
+                  // 4 against 5 separates cleanly (dE 21.3).
+                  color: "var(--chart-5)",
                 },
               ]}
             />

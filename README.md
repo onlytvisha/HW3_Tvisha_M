@@ -61,6 +61,34 @@ five hues into the 0.48–0.67 band and is validated for the lightness band,
 chroma floor, deuteranopia/protanopia separation (worst adjacent pair ΔE 10.3),
 normal-vision separation (17.7) and 3:1 contrast against the card surface.
 
+### Two themes
+
+Neon is the default. **Paper** — cream ground, ink text, no glow — is one
+click away in the header, for reading rather than being impressed at.
+
+Because every shadcn token in `:root` is declared as `var(--sw-*)`, paper
+only restates the raw palette; the whole component layer re-themes for free.
+Four extra rules retire the effects that are decorative rather than
+structural and that no recolouring would calm: the horizon grid, the text
+glow, the two background blooms, and the neon card-hover bloom.
+
+Two things needed real work rather than a token swap:
+
+- **The chart ramp is re-stepped, not reused.** The dark ramp lives in the
+  OKLCH band 0.48–0.67, which is what stops marks sinking into a near-black
+  card and is far too dark on cream. Paper's ramp puts the same five hues in
+  the light band 0.43–0.77 and clears every check against the cream card
+  (worst adjacent pair ΔE 13.5 protan, 23.2 normal-vision, all five ≥ 3:1).
+- **Monogram tiles are cut with the surface.** They carry black initials, so
+  they need a light ground; paper's accents are deep, so `--sw-tile-strength`
+  drops them to a 30% tint. On neon it is 100% and nothing changes.
+
+The choice is stored in `localStorage` and applied by a small inline script
+in `<head>` before first paint — without it, a stored preference only lands
+at hydration and every navigation flashes near-black before turning cream.
+The script also drops the `dark` class, since shadcn's `dark:` variants are
+refinements written for a dark ground.
+
 ## Running it locally
 
 ### 1. Install

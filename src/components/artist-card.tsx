@@ -103,8 +103,12 @@ export function ArtistCard({
               className="rounded-sm bg-[var(--chart-4)]"
               style={{ width: `${100 - collab}%` }}
             />
+            {/* chart-5 rather than chart-1: this bar is 6px tall with no
+                label on either segment, so colour is the only thing telling
+                the two apart, and 4-against-1 is the pair in the ramp that
+                deuteranopia flattens (dE 5.6). 4-against-5 is dE 21.3. */}
             <div
-              className="rounded-sm bg-[var(--chart-1)]"
+              className="rounded-sm bg-[var(--chart-5)]"
               style={{ width: `${collab}%` }}
             />
           </div>

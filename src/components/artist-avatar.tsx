@@ -20,6 +20,11 @@ const PAIRS = [
   ["var(--sw-pink)", "var(--sw-amber)"],
 ] as const;
 
+/** Cuts an accent with the card surface, by the current theme's amount. */
+function mix(color: string): string {
+  return `color-mix(in oklab, ${color} var(--sw-tile-strength), var(--sw-surface))`;
+}
+
 /** djb2, so the palette choice is stable across renders and servers. */
 function hash(text: string): number {
   let h = 5381;
@@ -69,7 +74,12 @@ export function ArtistAvatar({
         "font-heading flex items-center justify-center font-bold tracking-tight text-black/70 select-none",
         className,
       )}
-      style={{ backgroundImage: `linear-gradient(135deg, ${from}, ${to})` }}
+      // Both stops are cut with the card surface by --sw-tile-strength, which
+      // is 100% on the neon palette (no change) and a tint on paper, whose
+      // accents are too dark to carry black initials at full strength.
+      style={{
+        backgroundImage: `linear-gradient(135deg, ${mix(from)}, ${mix(to)})`,
+      }}
     >
       {monogram(name)}
     </div>

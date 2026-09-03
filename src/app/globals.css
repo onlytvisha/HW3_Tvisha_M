@@ -6,13 +6,18 @@
 
 /* ==========================================================================
    NEON ARCHIVE - synthwave palette, after the daisyUI `synthwave` theme.
-   The site is dark-only by design, so the palette lives on :root and <html>
-   carries `.dark` purely so shadcn `dark:` variants resolve. Every value
-   below is a shadcn token name, which is why the stock shadcn components
-   come out themed without being edited.
+   This is the default theme; `paper` further down is the calm alternative.
+   Every value below is a shadcn token name, which is why the stock shadcn
+   components come out themed without being edited.
+
+   <html> carries `.dark` so shadcn `dark:` variants resolve. The theme
+   switch removes it along with setting data-theme, because those variants
+   are stock-component refinements that are wrong on a light ground.
    ========================================================================== */
 
 :root {
+  color-scheme: dark;
+
   /* --- raw palette ------------------------------------------------------ */
   --sw-void: #120b2e; /* deepest, behind everything */
   --sw-base: #1a103d; /* page background */
@@ -29,6 +34,12 @@
 
   --sw-text: #f9f7fd;
   --sw-text-dim: #a99fd0;
+
+  /* How much of the accent shows through a monogram tile, the rest being the
+     card surface. The tiles carry black text, which needs a light ground; on
+     this palette the accents already are one, so they show at full strength.
+     See ArtistAvatar. */
+  --sw-tile-strength: 100%;
 
   /* --- shadcn tokens ---------------------------------------------------- */
   --background: var(--sw-base);
@@ -78,6 +89,69 @@
   --sidebar-accent-foreground: var(--sw-cyan);
   --sidebar-border: var(--sw-line);
   --sidebar-ring: var(--sw-pink);
+}
+
+/* ==========================================================================
+   PAPER - the calm theme, for when the neon gets tiring. Opt in with
+   data-theme="paper" on <html>; the inline script in layout.tsx sets it
+   before first paint so there is no flash of the wrong palette.
+
+   Only the raw --sw-* palette and the handful of literal hexes are restated
+   here. Every shadcn token in :root is declared as var(--sw-*), so
+   redefining the palette re-themes the whole component layer for free.
+
+   Selector is :root[data-theme] rather than a bare attribute selector: a
+   bare one ties with :root on specificity and would depend on source order.
+   ========================================================================== */
+
+:root[data-theme="paper"] {
+  color-scheme: light;
+
+  /* --- raw palette ------------------------------------------------------ */
+  --sw-void: #ebe3d3; /* deepest, behind everything */
+  --sw-base: #f5f0e6; /* page background - warm cream */
+  --sw-surface: #fbf8f1; /* raised card, near white */
+  --sw-surface-2: #efe8db; /* hover / nested surface */
+  --sw-line: #ddd3c0; /* hairline borders */
+
+  /* Pulled down to ink-adjacent depth. Enough hue survives to keep links,
+     active nav and the wordmark distinguishable from body text; not enough
+     for any of it to read as neon. */
+  --sw-pink: #a03257;
+  --sw-cyan: #0f5f7d;
+  --sw-amber: #8a6708;
+  --sw-mint: #1f6b45;
+  --sw-violet: #6b4a94;
+  --sw-red: #a32d28;
+
+  --sw-text: #1c1a17;
+  --sw-text-dim: #6b6154;
+
+  /* Paper's accents are deep rather than bright, so a tile at full strength
+     is a dark block with unreadable black initials on it - and 24 of them a
+     screen is exactly the shouting this theme exists to avoid. Cut to a
+     tint: the monogram stays legible and the grid stays quiet. */
+  --sw-tile-strength: 30%;
+
+  /* --- the shadcn tokens that are literal hexes rather than var() -------- */
+  --popover: var(--sw-surface);
+  --primary-foreground: #fdfbf6;
+  --muted: var(--sw-surface-2);
+  --sidebar-primary-foreground: #fdfbf6;
+
+  /* Data marks, re-stepped for the cream card. The dark ramp sits in the
+     OKLCH lightness band 0.48-0.67, which is what keeps marks from sinking
+     into a near-black card and is far too dark against paper; this one sits
+     in the light band 0.43-0.77 on the same five hues, in the same slot
+     order. Validated against surface #fbf8f1 - lightness band, chroma
+     floor, deutan/protan separation (worst adjacent pair dE 13.5),
+     normal-vision floor (23.2) and 3:1 contrast all pass. Assign in this
+     order; never cycle. */
+  --chart-1: #c62c58; /* rose   */
+  --chart-2: #0085c5; /* blue   */
+  --chart-3: #b3880f; /* ochre  */
+  --chart-4: #006f38; /* green  */
+  --chart-5: #7d4dad; /* violet */
 }
 
 @theme inline {
@@ -166,6 +240,12 @@
         transparent 70%
       );
     background-attachment: fixed;
+  }
+
+  /* Paper drops both blooms for a flat, even ground - the low-stimulus
+     reading surface is the entire point of the theme. */
+  :root[data-theme="paper"] body {
+    background-image: none;
   }
 
   h1,
@@ -269,6 +349,43 @@
       transparent
     );
     height: 1px;
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* Paper's share of the component layer. The palette swap alone gets the
+     colours right; these four rules retire the effects that are decorative
+     rather than structural, which no amount of recolouring would calm. */
+
+  /* The horizon grid is the loudest thing on the page and carries no
+     information. */
+  :root[data-theme="paper"] .sw-grid {
+    display: none;
+  }
+
+  /* Glow on cream is a smudge, not a glow. */
+  :root[data-theme="paper"] .sw-glow-pink,
+  :root[data-theme="paper"] .sw-glow-cyan {
+    text-shadow: none;
+  }
+
+  /* Cards go opaque and lift with a plain ink shadow instead of a bloom.
+     The translucency and blur exist to let the blooms through, and there
+     are no blooms here. */
+  :root[data-theme="paper"] .sw-card {
+    background-color: var(--sw-surface);
+    border-color: var(--sw-line);
+    backdrop-filter: none;
+  }
+
+  :root[data-theme="paper"] .sw-card:hover {
+    border-color: color-mix(in oklab, var(--sw-text) 24%, var(--sw-line));
+    box-shadow: 0 0.5rem 1.5rem -0.75rem
+      color-mix(in oklab, var(--sw-text) 28%, transparent);
+  }
+
+  :root[data-theme="paper"] .sw-rule {
+    background-image: none;
+    background-color: var(--sw-line);
   }
 }
 
