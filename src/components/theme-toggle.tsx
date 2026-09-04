@@ -1,6 +1,6 @@
 "use client";
 
-import { Moon, Sun } from "lucide-react";
+import { BookOpen, Sparkles } from "lucide-react";
 import { useSyncExternalStore } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -30,7 +30,7 @@ function subscribe(onStoreChange: () => void): () => void {
   // them here so every open tab stays on the same theme.
   const onStorage = (event: StorageEvent) => {
     if (event.key !== THEME_STORAGE_KEY) return;
-    applyTheme(event.newValue === "paper" ? "paper" : "neon");
+    applyTheme(event.newValue === "paper" ? "paper" : "valentine");
     onStoreChange();
   };
 
@@ -44,7 +44,9 @@ function subscribe(onStoreChange: () => void): () => void {
 }
 
 function getSnapshot(): Theme {
-  return document.documentElement.dataset.theme === "paper" ? "paper" : "neon";
+  return document.documentElement.dataset.theme === "paper"
+    ? "paper"
+    : "valentine";
 }
 
 function getServerSnapshot(): Theme {
@@ -52,17 +54,22 @@ function getServerSnapshot(): Theme {
 }
 
 /**
- * Switches between the synthwave default and the calm paper palette.
+ * Switches between the valentine default and the plainer paper palette.
  *
  * Shows the theme it will switch *to*, which is the convention every OS
- * dark-mode toggle uses and the one people already read correctly.
+ * dark-mode toggle uses and the one people already read correctly - though
+ * the icons here are Sparkles/BookOpen rather than Sun/Moon, since both
+ * themes are light and a sun-versus-moon pairing would only make sense
+ * against a dark default.
  */
 export function ThemeToggle({ className }: { className?: string }) {
   const theme = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
-  const next: Theme = theme === "paper" ? "neon" : "paper";
+  const next: Theme = theme === "paper" ? "valentine" : "paper";
 
   const label =
-    next === "paper" ? "Switch to the calm theme" : "Switch to the neon theme";
+    next === "paper"
+      ? "Switch to the calm theme"
+      : "Switch to the valentine theme";
 
   function toggle() {
     applyTheme(next);
@@ -86,9 +93,9 @@ export function ThemeToggle({ className }: { className?: string }) {
           className={className}
         >
           {next === "paper" ? (
-            <Sun className="size-5" />
+            <BookOpen className="size-5" />
           ) : (
-            <Moon className="size-5" />
+            <Sparkles className="size-5" />
           )}
         </Button>
       </TooltipTrigger>

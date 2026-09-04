@@ -5,41 +5,59 @@
 @custom-variant dark (&:is(.dark *));
 
 /* ==========================================================================
-   NEON ARCHIVE - synthwave palette, after the daisyUI `synthwave` theme.
-   This is the default theme; `paper` further down is the calm alternative.
+   NEON ARCHIVE - valentine palette, after the daisyUI `valentine` theme.
+   This is the default theme; `paper` further down is the plainer,
+   lower-contrast alternative for reading rather than being impressed at.
    Every value below is a shadcn token name, which is why the stock shadcn
    components come out themed without being edited.
 
-   <html> carries `.dark` so shadcn `dark:` variants resolve. The theme
-   switch removes it along with setting data-theme, because those variants
-   are stock-component refinements that are wrong on a light ground.
+   Sourced from daisyUI's real valentine theme (light, rose/lavender/sky-blue
+   on a near-white ground) - see
+   raw.githubusercontent.com/saadeghi/daisyui/master/packages/daisyui/src/themes/valentine.css
+   for the exact upstream oklch values this is built from. Its base ramp
+   (base-100/200/300) maps directly onto the void/base/surface/surface-2/line
+   steps below; its primary/secondary/accent/warning/success/error swatches
+   are darkened from their upstream lightness (which is tuned for large
+   button/badge fills) down to a lightness band this codebase can actually
+   use as small text and borders on a near-white ground - the same move
+   `paper` below already made against the original synthwave accents.
+
+   <html> no longer carries `.dark`: both themes here are light, so the
+   variants that class exists to gate never apply. See src/lib/theme.ts.
    ========================================================================== */
 
 :root {
-  color-scheme: dark;
+  color-scheme: light;
 
-  /* --- raw palette ------------------------------------------------------ */
-  --sw-void: #120b2e; /* deepest, behind everything */
-  --sw-base: #1a103d; /* page background */
-  --sw-surface: #251a4a; /* raised card */
-  --sw-surface-2: #2f2259; /* hover / nested surface */
-  --sw-line: #3d2f73; /* hairline borders */
+  /* --- raw palette -------------------------------------------------------
+     A note on precision: the chart ramp and the exact --sw-* hexes below are
+     a first pass at daisyUI's valentine hues re-stepped for contrast, not a
+     re-run of the lightness-band / chroma-floor / CVD-separation validation
+     the synthwave and paper ramps both record in their own comments. Worth
+     an actual contrast/CVD check pass before calling this final. */
+  --sw-void: #f2dde6; /* deepest, behind everything */
+  --sw-base: #fbf3f6; /* page background - daisyUI valentine base-100 */
+  --sw-surface: #fffcfd; /* raised card, near white */
+  --sw-surface-2: #f5e5eb; /* hover / nested surface - base-200 */
+  --sw-line: #ecd0db; /* hairline borders - base-300 */
 
-  --sw-pink: #e779c1; /* primary     */
-  --sw-cyan: #58c7f3; /* secondary   */
-  --sw-amber: #f3cc30; /* accent      */
-  --sw-mint: #71ead2; /* success     */
-  --sw-violet: #b48ef5; /* extra       */
-  --sw-red: #e24056; /* destructive */
+  --sw-pink: #c2255f; /* primary   - valentine's hot pink, darkened for text */
+  --sw-cyan: #1f76a0; /* secondary - valentine's sky-blue accent, darkened */
+  --sw-amber: #a3650a; /* accent    - valentine's warning, darkened */
+  --sw-mint: #158a5c; /* success   - valentine's success, darkened */
+  --sw-violet: #8a3f9e; /* extra     - valentine's lavender secondary, darkened */
+  --sw-red: #b8203a; /* destructive - valentine's error */
 
-  --sw-text: #f9f7fd;
-  --sw-text-dim: #a99fd0;
+  --sw-text: #6b1f3f; /* daisyUI valentine's own base-content: a deep maroon,
+                          not a neutral - see the file header note above */
+  --sw-text-dim: #8a5468;
 
   /* How much of the accent shows through a monogram tile, the rest being the
-     card surface. The tiles carry black text, which needs a light ground; on
-     this palette the accents already are one, so they show at full strength.
-     See ArtistAvatar. */
-  --sw-tile-strength: 100%;
+     card surface. The tiles carry black text; these accents are darkened
+     for readability rather than bright, so a tile at full strength would be
+     a dark block with unreadable black initials - the same reasoning paper
+     records below, at a similar cut. See ArtistAvatar. */
+  --sw-tile-strength: 35%;
 
   /* --- shadcn tokens ---------------------------------------------------- */
   --background: var(--sw-base);
@@ -47,15 +65,15 @@
 
   --card: var(--sw-surface);
   --card-foreground: var(--sw-text);
-  --popover: #221749;
+  --popover: var(--sw-surface);
   --popover-foreground: var(--sw-text);
 
   --primary: var(--sw-pink);
-  --primary-foreground: #2a0a20;
+  --primary-foreground: #fdf7f9;
   --secondary: var(--sw-surface-2);
   --secondary-foreground: var(--sw-text);
 
-  --muted: #241a49;
+  --muted: var(--sw-surface-2);
   --muted-foreground: var(--sw-text-dim);
   --accent: var(--sw-surface-2);
   --accent-foreground: var(--sw-cyan);
@@ -66,25 +84,22 @@
   --ring: var(--sw-pink);
 
   /* Categorical ramp for data marks. Same five hues as the UI accents above,
-     but re-stepped into the OKLCH lightness band 0.48-0.67 that dark-surface
-     marks need: the neon accents sit at L 0.72-0.86, which is fine for text
-     and borders and too light and too uneven for a bar chart.
-     Validated against surface #251a4a - lightness band, chroma floor,
-     deutan/protan separation (worst adjacent pair dE 10.3), normal-vision
-     floor (17.7) and 3:1 contrast all pass. Assign in this order; never
-     cycle. */
-  --chart-1: #d43691; /* pink   */
-  --chart-2: #00a3d4; /* cyan   */
-  --chart-3: #b98d00; /* amber  */
-  --chart-4: #00a983; /* mint   */
-  --chart-5: #8d52db; /* violet */
+     re-stepped for a light card the same way paper's ramp is - see the
+     precision note above; this has not yet had the lightness-band /
+     chroma-floor / CVD pass paper's own values record. Assign in this
+     order; never cycle. */
+  --chart-1: #c2255f; /* pink   */
+  --chart-2: #1f76a0; /* cyan   */
+  --chart-3: #a3650a; /* amber  */
+  --chart-4: #158a5c; /* mint   */
+  --chart-5: #8a3f9e; /* violet */
 
   --radius: 0.5rem;
 
   --sidebar: var(--sw-surface);
   --sidebar-foreground: var(--sw-text);
   --sidebar-primary: var(--sw-pink);
-  --sidebar-primary-foreground: #2a0a20;
+  --sidebar-primary-foreground: #fdf7f9;
   --sidebar-accent: var(--sw-surface-2);
   --sidebar-accent-foreground: var(--sw-cyan);
   --sidebar-border: var(--sw-line);
@@ -92,9 +107,9 @@
 }
 
 /* ==========================================================================
-   PAPER - the calm theme, for when the neon gets tiring. Opt in with
-   data-theme="paper" on <html>; the inline script in layout.tsx sets it
-   before first paint so there is no flash of the wrong palette.
+   PAPER - the plainer theme, for reading rather than being impressed at.
+   Opt in with data-theme="paper" on <html>; the inline script in layout.tsx
+   sets it before first paint so there is no flash of the wrong palette.
 
    Only the raw --sw-* palette and the handful of literal hexes are restated
    here. Every shadcn token in :root is declared as var(--sw-*), so
@@ -226,26 +241,6 @@
 
   body {
     @apply bg-background text-foreground antialiased;
-    /* Two soft neon blooms over the base colour, fixed so they stay put while
-       the page scrolls. The horizon grid in .sw-grid sits on top of this. */
-    background-image:
-      radial-gradient(
-        62rem 40rem at 12% -8%,
-        color-mix(in oklab, var(--sw-pink) 22%, transparent),
-        transparent 70%
-      ),
-      radial-gradient(
-        55rem 34rem at 92% 4%,
-        color-mix(in oklab, var(--sw-cyan) 16%, transparent),
-        transparent 70%
-      );
-    background-attachment: fixed;
-  }
-
-  /* Paper drops both blooms for a flat, even ground - the low-stimulus
-     reading surface is the entire point of the theme. */
-  :root[data-theme="paper"] body {
-    background-image: none;
   }
 
   h1,
@@ -291,53 +286,18 @@
 }
 
 @layer components {
-  /* The synthwave signature: a horizon grid receding to a vanishing point.
-     Decorative only, and kept faint enough not to fight body text. */
-  .sw-grid {
-    position: absolute;
-    inset: auto 0 0 0;
-    height: 22rem;
-    pointer-events: none;
-    background-image:
-      linear-gradient(
-        to right,
-        color-mix(in oklab, var(--sw-cyan) 26%, transparent) 1px,
-        transparent 1px
-      ),
-      linear-gradient(
-        to bottom,
-        color-mix(in oklab, var(--sw-pink) 26%, transparent) 1px,
-        transparent 1px
-      );
-    background-size: 4rem 4rem;
-    transform: perspective(20rem) rotateX(72deg);
-    transform-origin: bottom;
-    mask-image: linear-gradient(to top, #000 5%, transparent 85%);
-  }
-
-  /* Text glow, used sparingly: wordmark and section eyebrows only. */
-  .sw-glow-pink {
-    text-shadow:
-      0 0 0.5rem color-mix(in oklab, var(--sw-pink) 55%, transparent),
-      0 0 1.6rem color-mix(in oklab, var(--sw-pink) 30%, transparent);
-  }
-
-  .sw-glow-cyan {
-    text-shadow:
-      0 0 0.5rem color-mix(in oklab, var(--sw-cyan) 55%, transparent),
-      0 0 1.6rem color-mix(in oklab, var(--sw-cyan) 30%, transparent);
-  }
-
-  /* Card lift on hover: border brightens, a low bloom appears underneath. */
+  /* Card lift on hover: border brightens, a plain ink shadow lifts it. Both
+     themes are light and neither wants a translucent, blurred card - that
+     treatment existed to let the old synthwave background blooms show
+     through, and there is no bloom behind anything any more. */
   .sw-card {
-    @apply border-sw-line/70 bg-sw-surface/70 backdrop-blur-sm transition-all duration-300;
+    @apply border-sw-line bg-sw-surface transition-all duration-300;
   }
 
   .sw-card:hover {
-    border-color: color-mix(in oklab, var(--sw-pink) 55%, transparent);
-    box-shadow:
-      0 0 0 1px color-mix(in oklab, var(--sw-pink) 18%, transparent),
-      0 1rem 2.5rem -1rem color-mix(in oklab, var(--sw-pink) 45%, transparent);
+    border-color: color-mix(in oklab, var(--sw-text) 24%, var(--sw-line));
+    box-shadow: 0 0.5rem 1.5rem -0.75rem
+      color-mix(in oklab, var(--sw-text) 28%, transparent);
   }
 
   .sw-rule {
@@ -351,38 +311,8 @@
     height: 1px;
   }
 
-  /* ---------------------------------------------------------------------- */
-  /* Paper's share of the component layer. The palette swap alone gets the
-     colours right; these four rules retire the effects that are decorative
-     rather than structural, which no amount of recolouring would calm. */
-
-  /* The horizon grid is the loudest thing on the page and carries no
-     information. */
-  :root[data-theme="paper"] .sw-grid {
-    display: none;
-  }
-
-  /* Glow on cream is a smudge, not a glow. */
-  :root[data-theme="paper"] .sw-glow-pink,
-  :root[data-theme="paper"] .sw-glow-cyan {
-    text-shadow: none;
-  }
-
-  /* Cards go opaque and lift with a plain ink shadow instead of a bloom.
-     The translucency and blur exist to let the blooms through, and there
-     are no blooms here. */
-  :root[data-theme="paper"] .sw-card {
-    background-color: var(--sw-surface);
-    border-color: var(--sw-line);
-    backdrop-filter: none;
-  }
-
-  :root[data-theme="paper"] .sw-card:hover {
-    border-color: color-mix(in oklab, var(--sw-text) 24%, var(--sw-line));
-    box-shadow: 0 0.5rem 1.5rem -0.75rem
-      color-mix(in oklab, var(--sw-text) 28%, transparent);
-  }
-
+  /* Paper drops the gradient for a plain hairline - one fewer accent, to
+     stay the quieter of the two themes. */
   :root[data-theme="paper"] .sw-rule {
     background-image: none;
     background-color: var(--sw-line);
@@ -425,6 +355,83 @@
     .np-art {
       transform: none;
     }
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* The recorder - a vinyl disk either side of the transport in
+     TrackPlayer. Pure CSS: no imgDisk/imgEllipse assets, just gradients
+     built from the theme's own --sw-* vars, which is what lets both disks
+     recolor for free across the theme switch the same way every other
+     surface here does.
+
+     Rotation runs at a constant speed whenever a track is playing - the
+     .recorder[data-playing="true"] selector below flips it on - rather than
+     trying to tie animation-duration to --np-level on a per-frame basis,
+     which is fragile across browsers and buys nothing a glow pulse does
+     not already deliver. The glow itself reuses --np-level exactly as
+     .np-art does above; it cascades down from the same .np-card ancestor,
+     so no separate wiring is needed here. */
+
+  .recorder-disk {
+    position: relative;
+    border-radius: 999px;
+    background:
+      repeating-conic-gradient(
+        from 0deg,
+        color-mix(in oklab, var(--sw-line) 75%, transparent) 0deg 1.5deg,
+        transparent 1.5deg 9deg
+      ),
+      radial-gradient(
+        circle at 50% 50%,
+        var(--sw-surface-2) 0 20%,
+        var(--sw-void) 20% 100%
+      );
+    box-shadow:
+      inset 0 0 0 1px var(--sw-line),
+      0 0.4rem 1rem -0.6rem
+        color-mix(
+          in oklab,
+          var(--sw-pink) calc(var(--np-level) * 60%),
+          transparent
+        );
+    animation: recorder-spin 5s linear infinite;
+    animation-play-state: paused;
+    transition: box-shadow 90ms linear;
+  }
+
+  .recorder-disk::after {
+    content: "";
+    position: absolute;
+    inset: 36%;
+    border-radius: 999px;
+    background: var(--sw-pink);
+    box-shadow: 0 0 0 1px var(--sw-line);
+  }
+
+  .recorder[data-playing="true"] .recorder-disk {
+    animation-play-state: running;
+  }
+
+  @keyframes recorder-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  /* The scrub slider's knob, positioned by inline `left` in the component.
+     A dedicated class rather than reusing the fill bar's own edge, so it
+     stays a fixed size regardless of how far into the track the fill has
+     grown. */
+  .slider-knob {
+    position: absolute;
+    top: 50%;
+    width: 0.75rem;
+    height: 0.75rem;
+    border-radius: 999px;
+    background: var(--sw-pink);
+    box-shadow: 0 0 0 2px var(--sw-surface);
+    transform: translate(-50%, -50%);
+    transition: left 150ms ease-linear;
   }
 }
 

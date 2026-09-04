@@ -15,7 +15,12 @@ export async function ArtistPortrait({ artist }: { artist: Artist }) {
   return (
     <ArtistAvatar
       name={artist.name}
-      imageUrl={profile.image_url}
+      // Wikipedia's infobox photo when the live lookup found one, then the
+      // artist's biggest track's own thumbnail, then the Spotify portrait the
+      // pipeline stored on the row. The last is why most artists have a face
+      // at all: Wikipedia only has an infobox photo for acts notable enough
+      // to have won one, and the crawl added many that are not.
+      imageUrl={profile.image_url ?? artist.image_url}
       className={`${FRAME} ring-sw-line/60 ring-1`}
     />
   );

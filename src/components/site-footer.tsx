@@ -3,9 +3,6 @@ import Link from "next/link";
 export function SiteFooter() {
   return (
     <footer className="border-sw-line/60 relative mt-24 overflow-hidden border-t">
-      {/* The horizon grid, anchored to the bottom of the page. */}
-      <div className="sw-grid" aria-hidden="true" />
-
       <div className="relative mx-auto max-w-6xl px-4 py-12 sm:px-6">
         <div className="flex flex-col gap-8 md:flex-row md:justify-between">
           <div className="max-w-sm">
@@ -24,17 +21,34 @@ export function SiteFooter() {
               <p className="text-sw-text mb-3 font-medium">Browse</p>
               <ul className="text-sw-text-dim space-y-2">
                 <li>
-                  <Link href="/artists" className="hover:text-sw-cyan transition-colors">
+                  <Link
+                    href="/artists"
+                    className="hover:text-sw-cyan transition-colors"
+                  >
                     Full archive
                   </Link>
                 </li>
                 <li>
-                  <Link href="/charts" className="hover:text-sw-cyan transition-colors">
+                  <Link
+                    href="/genres"
+                    className="hover:text-sw-cyan transition-colors"
+                  >
+                    Genres
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="/charts"
+                    className="hover:text-sw-cyan transition-colors"
+                  >
                     Charts
                   </Link>
                 </li>
                 <li>
-                  <Link href="/about" className="hover:text-sw-cyan transition-colors">
+                  <Link
+                    href="/about"
+                    className="hover:text-sw-cyan transition-colors"
+                  >
                     About the data
                   </Link>
                 </li>
@@ -46,12 +60,12 @@ export function SiteFooter() {
               <ul className="text-sw-text-dim space-y-2">
                 <li>
                   <a
-                    href="https://developers.deezer.com/api"
+                    href="https://developer.spotify.com/documentation/web-api"
                     target="_blank"
                     rel="noreferrer noopener"
                     className="hover:text-sw-cyan transition-colors"
                   >
-                    Deezer API
+                    Spotify Web API
                   </a>
                 </li>
                 <li>
@@ -62,6 +76,26 @@ export function SiteFooter() {
                     className="hover:text-sw-cyan transition-colors"
                   >
                     iTunes Search API
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="https://music.youtube.com"
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    className="hover:text-sw-cyan transition-colors"
+                  >
+                    YouTube Music
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="https://musicbrainz.org"
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    className="hover:text-sw-cyan transition-colors"
+                  >
+                    MusicBrainz
                   </a>
                 </li>
                 <li>
@@ -93,7 +127,10 @@ export function SiteFooter() {
           <p>
             Stream totals are a fixed historical snapshot from the source
             dataset, not live 2026 figures.{" "}
-            <Link href="/about" className="text-sw-pink/90 hover:text-sw-pink underline underline-offset-2">
+            <Link
+              href="/about"
+              className="text-sw-pink/90 hover:text-sw-pink underline underline-offset-2"
+            >
               What that means
             </Link>
             .

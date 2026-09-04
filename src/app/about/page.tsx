@@ -76,7 +76,7 @@ export default function AboutPage() {
         <p className="text-sw-text-dim mt-4 text-lg leading-relaxed">
           Every artist page mixes a frozen dataset with live API calls. Those
           two things age very differently, so this page says exactly which is
-          which.
+          which &mdash; and which artists have both.
         </p>
       </header>
 
@@ -95,24 +95,32 @@ export default function AboutPage() {
               <div className="text-sw-text-dim mt-3 space-y-3 text-sm leading-relaxed">
                 <p>
                   The dataset is a snapshot taken when it was compiled, and
-                  every stream figure in it is a cumulative lifetime count as
-                  of that moment. Real totals have only gone up since. An
-                  artist who has released a hit record since the snapshot is
+                  every stream figure in it is a cumulative lifetime count as of
+                  that moment. Real totals have only gone up since. An artist
+                  who has released a hit record since the snapshot is
                   undercounted here, and one who has been quiet is closer to
                   accurate.
                 </p>
                 <p>
-                  There is no way to refresh those numbers. No streaming
-                  service publishes per-artist lifetime stream counts through a
-                  public API &mdash; the closest anyone offers is a popularity
-                  or ranking signal, which measures recent play volume rather
-                  than a total. So the historical figures here cannot be
-                  brought up to date from any source.
+                  There is no way to refresh those numbers. No streaming service
+                  publishes per-artist lifetime stream counts through a public
+                  API &mdash; the closest anyone offers is a popularity or
+                  ranking signal, which measures recent play volume rather than
+                  a total. So the historical figures here cannot be brought up
+                  to date from any source.
                 </p>
                 <p className="text-sw-text">
-                  So: read the rankings as a snapshot of how these 500 artists
-                  compared to each other at one point in time, not as a
-                  leaderboard of today.
+                  So: read the stream totals as a snapshot of how one group of
+                  artists compared to each other at one point in time, not as a
+                  leaderboard of today. The archive is no longer ranked on them
+                  &mdash; it is ranked on live YouTube Music monthly listeners,
+                  which is a measure of listening rather than of lifetime plays,
+                  and the two disagree often.
+                </p>
+                <p>
+                  Only the 500 artists from the original dataset have stream
+                  figures at all. Everyone else reached the archive through a
+                  Spotify genre search, and their pages say so.
                 </p>
               </div>
             </div>
@@ -128,23 +136,22 @@ export default function AboutPage() {
           <Card className="sw-card">
             <CardContent className="px-5">
               <div className="flex items-center gap-2">
-                <Database
-                  className="text-sw-cyan size-4"
-                  aria-hidden="true"
-                />
+                <Database className="text-sw-cyan size-4" aria-hidden="true" />
                 <h3 className="text-sm font-semibold tracking-wide uppercase">
                   Frozen
                 </h3>
               </div>
               <ul className="text-sw-text-dim mt-3 space-y-1.5 text-sm">
                 <li>Total, lead, feature, solo and collaborative streams</li>
-                <li>Archive rank (#1&ndash;500)</li>
-                <li>Primary genre, country, language, act type</li>
-                <li>Debut year</li>
+                <li>All-time stream rank (#1&ndash;500)</li>
+                <li>Primary language</li>
+                <li>
+                  Genre, country, act type and debut year for the original 500
+                </li>
               </ul>
               <p className="text-sw-text-dim/70 mt-4 text-xs">
-                Loaded into Supabase once from the CSV, then read from
-                Postgres.
+                Loaded into Supabase once from the CSV, then read from Postgres.
+                Absent entirely for artists the crawl added.
               </p>
             </CardContent>
           </Card>
@@ -158,14 +165,23 @@ export default function AboutPage() {
                 </h3>
               </div>
               <ul className="text-sw-text-dim mt-3 space-y-1.5 text-sm">
-                <li>The artist&rsquo;s current biggest track, and its player</li>
+                <li>
+                  YouTube Music monthly listeners, and the rank and archive
+                  score drawn from them
+                </li>
+                <li>
+                  The artist&rsquo;s top 5 tracks on YouTube Music, and the
+                  player
+                </li>
                 <li>The 30-second preview audio you hear</li>
+                <li>MusicBrainz subgenre tags</li>
                 <li>Album artwork and artist photo</li>
-                <li>Apple&rsquo;s genre tags for the artist and the track</li>
-                <li>The description, from Wikipedia</li>
+                <li>The description from Wikipedia</li>
               </ul>
               <p className="text-sw-text-dim/70 mt-4 text-xs">
-                Fetched on first view, cached in Supabase for seven days.
+                Listener counts, tracks and subgenres are written by the offline
+                pipeline. The preview audio, artwork and description are fetched
+                on first view and cached for seven days.
               </p>
             </CardContent>
           </Card>
@@ -179,12 +195,27 @@ export default function AboutPage() {
           <Source
             name="Spotify Music Artist Streaming Analytics"
             kind="Kaggle dataset"
-            body="500 artists across 14 columns, with no missing values. Supplies every historical figure on the site."
+            body="500 artists across 14 columns, with no missing values. Supplies every historical figure on the site, and nothing that is current."
+          />
+          <Source
+            name="Spotify Web API"
+            kind="Spotipy, client credentials - portraits and discovery"
+            body="Reached through Spotipy, the official Python client for the Spotify Web API. Used for artist portraits, and for the genre searches that find acts the Kaggle dataset never listed. It is deliberately NOT the ranking source: in February 2026 Spotify removed followers, popularity and genres from the artist object for apps in Developer Mode, and made the artist top-tracks endpoint return 403. Those fields now require Extended Quota Mode, which is granted by application. So Spotify proposes artists and YouTube Music scores them."
+          />
+          <Source
+            name="YouTube Music"
+            kind="unofficial client (ytmusicapi) - the ranking and the tracks"
+            body="Two jobs, both from one lookup per artist. It publishes a monthly-listeners figure, which is what the archive is ranked on and what the 0-100 archive score is a percentile of; and its own 'top releases' shelf, already ordered by popularity, which is where the artist's top 5 tracks come from. The preview above each player is 30 seconds; the YouTube Music link under it is the whole record, free and without an account, which is the reason it is there. Resolved offline because the official YouTube Data API allows 10,000 quota units a day and charges 100 per search - about 100 artists."
+          />
+          <Source
+            name="MusicBrainz"
+            kind="no credentials - origin and subgenres"
+            body="Country of origin, act type and curated subgenre tags for artists that arrived through the crawl. Neither Spotify nor YouTube Music reports any of these, so without this backfill the country chart and the subgenre badges on an artist page would cover only what each act's own scattered metadata happened to include. Capped at one request a second, which is why it runs offline and is this pipeline's slowest pass."
           />
           <Source
             name="iTunes Search API"
-            kind="Apple, no credentials"
-            body="Resolves each dataset name to an Apple artist, then returns their songs in Apple Music's popularity order - so the first one carrying preview audio is the track they are biggest for right now. It also supplies the genre tags, the album artwork, and the real 30-second preview file the player streams. No API key, no OAuth app, and nothing to leak; the trade is that 'biggest' means Apple's ranking, not Spotify's."
+            kind="Apple, no credentials - the audio"
+            body="Supplies the permanent, non-expiring 30-second preview file for each of the tracks YouTube Music has already chosen - up to five per artist, looked up in parallel. Apple's preview URLs carry no signature and no expiry, so once fetched they stay good for as long as the cached row does."
           />
           <Source
             name="Wikipedia"
@@ -240,9 +271,9 @@ export default function AboutPage() {
         <div className="text-sw-text-dim mt-4 space-y-3 leading-relaxed">
           <p>
             Next.js on Vercel, with Supabase Postgres behind it. The interface
-            is shadcn/ui, re-themed by pointing its design tokens at a
-            synthwave palette rather than by restyling components one at a
-            time.
+            is shadcn/ui, re-themed by pointing its design tokens at
+            daisyUI&rsquo;s valentine palette rather than by restyling
+            components one at a time.
           </p>
           <p>
             Aggregates for the{" "}
@@ -259,7 +290,7 @@ export default function AboutPage() {
           </p>
           <p className="text-sw-text-dim/80 text-sm">
             This is a coursework project and is not affiliated with, endorsed
-            by, or connected to Apple or Spotify.
+            by, or connected to Apple, Spotify or YouTube.
           </p>
         </div>
       </section>

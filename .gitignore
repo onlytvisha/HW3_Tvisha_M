@@ -63,3 +63,13 @@ desktop.ini
 
 # Vercel CLI
 .vercel
+
+# pipeline lookup memo - regenerable, see pipeline/cache.py
+pipeline/.cache/
+__pycache__/
+*.pyc
+
+# Spotipy's default OAuth token cache, written to the repo root when the
+# pipeline is run as `python pipeline/run.py` from here. Holds a live access
+# token - never commit it.
+/.cache

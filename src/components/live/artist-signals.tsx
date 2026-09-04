@@ -1,40 +1,32 @@
-import { ExternalLink } from "lucide-react";
-
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getCachedArtistProfile } from "@/lib/enrich";
-import { formatCount } from "@/lib/format";
 import type { Artist } from "@/lib/types";
 
 /**
- * The live signals under the artist's name: a current fan count, the genre
- * Apple files them under, and a link out.
+ * The live signals under the artist's name: MusicBrainz's subgenre tags,
+ * falling back to Apple's single genre label for an artist MusicBrainz never
+ * matched.
  *
- * Kept visually distinct from the dataset figures further down the page, since
- * these are current and those are a fixed snapshot.
+ * Not links. MusicBrainz's tag vocabulary is its own, much larger than the
+ * archive's 23 canonical labels, and a link here would lead to an empty page
+ * for most of them - the linked one is the canonical badge in the masthead.
+ *
+ * The current listener count used to live here too, back when it came from a
+ * request-time provider lookup; it is now resolved offline by the pipeline
+ * and lives with the rest of the dataset-derived stat tiles further down the
+ * page instead.
  */
 export async function ArtistSignals({ artist }: { artist: Artist }) {
   const profile = await getCachedArtistProfile(artist);
 
-  const hasAnything =
-    profile.provider_followers != null ||
-    profile.genres.length > 0 ||
-    profile.provider_url;
+  const tags = artist.subgenres.length > 0 ? artist.subgenres : profile.genres;
 
-  if (!hasAnything) return null;
+  if (tags.length === 0) return null;
 
   return (
     <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
-      {profile.provider_followers != null && profile.provider_followers > 0 && (
-        <span className="text-sw-text-dim">
-          <span className="tnum text-sw-text font-medium">
-            {formatCount(profile.provider_followers)}
-          </span>{" "}
-          Deezer fans
-        </span>
-      )}
-
-      {profile.genres.map((genre) => (
+      {tags.slice(0, 5).map((genre) => (
         <Badge
           key={genre}
           variant="secondary"
@@ -43,18 +35,6 @@ export async function ArtistSignals({ artist }: { artist: Artist }) {
           {genre}
         </Badge>
       ))}
-
-      {profile.provider_url && (
-        <a
-          href={profile.provider_url}
-          target="_blank"
-          rel="noreferrer noopener"
-          className="text-sw-cyan hover:text-sw-cyan/80 inline-flex items-center gap-1.5 transition-colors"
-        >
-          Open on {profile.provider}
-          <ExternalLink className="size-3.5" aria-hidden="true" />
-        </a>
-      )}
     </div>
   );
 }

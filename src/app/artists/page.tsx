@@ -5,15 +5,22 @@ import { Suspense } from "react";
 
 import { ArchiveFilters } from "@/components/archive-filters";
 import { ArtistCard } from "@/components/artist-card";
+import { StaggerReveal } from "@/components/motion/stagger-reveal";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getArtists, getFilterOptions, type ArtistFilters } from "@/lib/queries";
+import {
+  getArchiveSummary,
+  getArtists,
+  getFilterOptions,
+  type ArtistFilters,
+  type ArtistSort,
+} from "@/lib/queries";
 
 export const metadata: Metadata = {
   title: "The archive",
   description:
-    "All 500 artists in the dataset, filterable by genre, country and act " +
-    "type, sortable by lifetime streams, debut year or collaboration share.",
+    "Every artist in the archive, ranked by how big they are right now, and " +
+    "filterable by genre, country and act type.",
 };
 
 export const revalidate = 3600;
@@ -35,10 +42,17 @@ export default async function ArtistsPage({
 
   const page = Math.max(1, Number(first(sp.page) ?? 1) || 1);
   const sortParam = first(sp.sort);
-  const sort: NonNullable<ArtistFilters["sort"]> =
-    sortParam === "name" || sortParam === "debut" || sortParam === "collab"
-      ? sortParam
-      : "streams";
+  const SORTS: ArtistSort[] = [
+    "popularity",
+    "listeners",
+    "streams",
+    "name",
+    "debut",
+    "collab",
+  ];
+  const sort: ArtistSort = SORTS.includes(sortParam as ArtistSort)
+    ? (sortParam as ArtistSort)
+    : "popularity";
 
   const filters: ArtistFilters = {
     search: first(sp.q),
@@ -50,9 +64,10 @@ export default async function ArtistsPage({
     offset: (page - 1) * PAGE_SIZE,
   };
 
-  const [{ artists, total }, options] = await Promise.all([
+  const [{ artists, total }, options, summary] = await Promise.all([
     getArtists(filters),
     getFilterOptions(),
+    getArchiveSummary(),
   ]);
 
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -66,7 +81,7 @@ export default async function ArtistsPage({
     if (filters.genre) next.set("genre", filters.genre);
     if (filters.country) next.set("country", filters.country);
     if (filters.artistType) next.set("type", filters.artistType);
-    if (sort !== "streams") next.set("sort", sort);
+    if (sort !== "popularity") next.set("sort", sort);
     if (target > 1) next.set("page", String(target));
 
     const qs = next.toString();
@@ -83,8 +98,10 @@ export default async function ArtistsPage({
           Every artist in the set
         </h1>
         <p className="text-sw-text-dim mt-3 max-w-2xl leading-relaxed">
-          500 acts, ranked by lifetime streams. Open any one of them to hear
-          the track they are biggest for right now.
+          {summary.artistCount.toLocaleString("en-US")} acts, ranked by live
+          YouTube Music monthly listeners. {summary.archiveCount} of them also
+          carry the original dataset&rsquo;s lifetime stream figures. Open any
+          one of them to hear the tracks they are biggest for right now.
         </p>
       </header>
 
@@ -93,6 +110,7 @@ export default async function ArtistsPage({
           <ArchiveFilters
             genres={options.genres}
             countries={options.countries}
+            artistCount={summary.artistCount}
           />
         </Suspense>
       </div>
@@ -124,11 +142,11 @@ export default async function ArtistsPage({
           </Button>
         </div>
       ) : (
-        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <StaggerReveal className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {artists.map((artist) => (
             <ArtistCard key={artist.id} artist={artist} />
           ))}
-        </div>
+        </StaggerReveal>
       )}
 
       {pageCount > 1 && (

@@ -17,7 +17,7 @@ export async function ArtistFeature({ artist }: { artist: Artist }) {
 
   return (
     <div className="space-y-6">
-      <TrackPlayer profile={profile} />
+      <TrackPlayer artist={artist} profile={profile} />
 
       {profile.bio && (
         <Card className="sw-card">

@@ -1,39 +1,32 @@
 /**
  * Builds the "live" half of an artist page and caches it.
  *
- * The dataset in `public.artists` is a frozen snapshot. Everything an artist
- * page shows as current is assembled here from three keyless sources and
- * written through to `public.artist_profiles`, so the second visitor to a page
- * pays one Supabase read instead of five outbound calls.
+ * The dataset in `public.artists` is a frozen snapshot, except for
+ * `monthly_listeners`, `top_songs` and `subgenres`, which the pipeline
+ * already resolved offline (see pipeline/run.py) and stored directly on the
+ * row - no live call needed for any of those at request time. What this file
+ * assembles and writes through to `public.artist_profiles` is everything
+ * that still has to be fetched live:
  *
- *   Deezer     identity, photo, fan count, and the biggest track - the only
- *              one of the three that publishes a popularity rank
- *   iTunes     the genre tag, and a stand-in track when Deezer draws a blank
- *   Wikipedia  the description, and a portrait when Deezer has none
+ *   iTunes     the genre tag, and a permanent 30-second preview file for
+ *              each of the artist's `top_songs`
+ *   Wikipedia  the description, and a portrait when no other source has one
  */
 import "server-only";
 
 import { cache } from "react";
 
-import {
-  getArtistWithTopTrack as getDeezer,
-  getTrackPreview,
-  isPreviewUrlExpired,
-  trackIdFromUrl,
-} from "@/lib/deezer";
-import {
-  findArtist as findItunesArtist,
-  findTrackPreview,
-  getArtistWithTopTrack as getItunes,
-} from "@/lib/itunes";
+import { findArtist as findItunesArtist, findTrackPreview } from "@/lib/itunes";
 import { getServiceClient, supabase } from "@/lib/supabase";
 import type { Artist, ArtistProfile } from "@/lib/types";
 import { getArtistSummary } from "@/lib/wikipedia";
 
 /**
- * How long a cached profile stays good. An artist's biggest track moves slowly
- * enough that a week is generous, and it keeps a class demo from tripping the
- * per-IP rate limits on a page refresh.
+ * How long a cached profile stays good. An artist's biggest tracks move
+ * slowly enough that a week is generous, and it keeps a class demo from
+ * tripping the per-IP rate limits on a page refresh. Apple's preview URLs
+ * never expire, so unlike the old Deezer-backed profile, nothing here goes
+ * stale mid-TTL - a cache hit is simply served as-is until it ages out.
  */
 const TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -68,65 +61,47 @@ async function writeCache(profile: ArtistProfile): Promise<void> {
   if (error) console.error("artist_profiles write failed:", error.message);
 }
 
-/** Fetches from Deezer, Apple and Wikipedia and assembles a profile row. */
+/** Fetches from Apple and Wikipedia and assembles a profile row. */
 async function buildProfile(artist: Artist): Promise<ArtistProfile> {
   const hint = artist.artist_type === "Group" ? "band" : "musician";
+  const songs = artist.top_songs ?? [];
 
-  // Mutually independent, so pay for the slowest rather than the sum.
-  const [deezer, apple, wiki] = await Promise.all([
-    getDeezer(artist.name),
+  // Mutually independent, so pay for the slowest rather than the sum. One
+  // iTunes preview lookup per song, in parallel - up to five, well inside
+  // the ~20/minute keyless rate limit, and cached for a week same as the
+  // rest of the profile.
+  const [apple, wiki, previewLookups] = await Promise.all([
     findItunesArtist(artist.name),
     getArtistSummary(artist.name, hint),
+    Promise.all(songs.map((s) => findTrackPreview(artist.name, s.track_name))),
   ]);
 
-  // Deezer owns the track because it is the only source that can rank. Apple
-  // only gets asked for one when Deezer came back with nothing playable.
-  const deezerTrack = deezer?.topTrack ?? null;
-  const fallback = deezerTrack ? null : await getItunes(artist.name);
-  const appleTrack = fallback?.topTrack ?? null;
-
-  const provider = deezerTrack ? "Deezer" : appleTrack ? "Apple Music" : null;
-
-  // Deezer picked the track; Apple is asked for the audio. Deezer's preview
-  // URLs are signed and die after 15 minutes, which is nothing against a
-  // seven-day cache - a row would spend almost its whole life pointing at a
-  // URL that 403s. Apple's carry no expiry, so they survive as long as the
-  // row. Deezer's URL stays as the fallback, and is re-minted on read.
-  const appleAudio = deezerTrack
-    ? await findTrackPreview(artist.name, deezerTrack.title)
-    : null;
+  const track_previews = songs
+    .map((song, i) => {
+      const found = previewLookups[i];
+      if (!found) return null;
+      return {
+        video_id: song.video_id,
+        track_name: song.track_name,
+        preview_url: found.previewUrl,
+        artwork_url: found.artworkUrl,
+      };
+    })
+    .filter(
+      (preview): preview is NonNullable<typeof preview> => preview !== null,
+    );
 
   return {
     artist_id: artist.id,
-    provider,
-    provider_artist_id: deezer ? String(deezer.artist.id) : null,
-    provider_url: deezer?.artist.url ?? null,
-    provider_followers: deezer?.artist.fans ?? null,
 
-    // Deezer's artist portraits are the best of the three; Wikipedia's
-    // infobox photo is the next best, and album art is the last resort.
-    image_url:
-      deezer?.artist.imageUrl ??
-      wiki?.thumbnail ??
-      deezerTrack?.coverUrl ??
-      appleTrack?.artworkUrl ??
-      null,
+    // Wikipedia's infobox photo, then the biggest song's own thumbnail.
+    image_url: wiki?.thumbnail ?? songs[0]?.thumbnail ?? null,
 
-    // Apple files an artist under one clean canonical genre. Deezer's album
-    // genres were noisier - a compilation drags in nine unrelated tags.
+    // Apple files an artist under one clean canonical genre.
     genres: apple?.genre ? [apple.genre] : [],
     genre_source: apple?.genre ? "Apple Music" : null,
 
-    top_track_name: deezerTrack?.title ?? appleTrack?.name ?? null,
-    top_track_album: deezerTrack?.album ?? appleTrack?.album ?? null,
-    top_track_image: deezerTrack?.coverUrl ?? appleTrack?.artworkUrl ?? null,
-    top_track_preview_url:
-      appleAudio?.previewUrl ??
-      deezerTrack?.previewUrl ??
-      appleTrack?.previewUrl ??
-      null,
-    top_track_url: deezerTrack?.url ?? appleTrack?.url ?? null,
-    top_track_rank: deezerTrack?.rank ?? null,
+    track_previews,
 
     bio: wiki?.extract ?? null,
     bio_source: wiki ? "Wikipedia" : null,
@@ -136,54 +111,14 @@ async function buildProfile(artist: Artist): Promise<ArtistProfile> {
   };
 }
 
-/**
- * Re-mints an expired Deezer preview URL in place.
- *
- * Rows written before Apple became the audio source - and the handful where
- * Apple has no match for the track - still point at a signed Deezer URL that
- * only lived 15 minutes. Rather than rebuild the whole profile (five
- * outbound calls, and the bio and fan count have not gone anywhere), this
- * replaces the one field that goes stale, for the price of a single call.
- */
-async function refreshPreviewUrl(
-  artist: Artist,
-  profile: ArtistProfile,
-): Promise<ArtistProfile> {
-  const url = profile.top_track_preview_url;
-  if (!url || !isPreviewUrlExpired(url)) return profile;
-
-  const trackId = profile.top_track_url
-    ? trackIdFromUrl(profile.top_track_url)
-    : null;
-
-  // Prefer a permanent Apple URL, so this is the last time this row needs it.
-  const apple = profile.top_track_name
-    ? await findTrackPreview(artist.name, profile.top_track_name)
-    : null;
-
-  const fresh =
-    apple?.previewUrl ?? (trackId ? await getTrackPreview(trackId) : null);
-
-  if (!fresh) return profile;
-
-  const updated = { ...profile, top_track_preview_url: fresh };
-  await writeCache(updated);
-  return updated;
-}
-
-/**
- * Cache-first profile lookup.
- *
- * `force` skips the freshness check, for the refresh control on the artist
- * page.
- */
+/** Cache-first profile lookup. `force` skips the freshness check. */
 export async function getArtistProfile(
   artist: Artist,
   force = false,
 ): Promise<ArtistProfile> {
   if (!force) {
     const cached = await readCache(artist.id);
-    if (cached && isFresh(cached)) return refreshPreviewUrl(artist, cached);
+    if (cached && isFresh(cached)) return cached;
   }
 
   const profile = await buildProfile(artist);

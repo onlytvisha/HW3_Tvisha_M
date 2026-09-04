@@ -1,14 +1,18 @@
 import { cn } from "@/lib/utils";
 
 /**
- * A deterministic monogram tile, used wherever a real photo is not worth
- * fetching.
+ * An artist's portrait, or a deterministic monogram tile when there is none.
  *
- * List pages show up to 500 artists at a time and the dataset ships no
- * images, so fetching a portrait per card would mean 500 outbound
- * calls to render one screen. Instead every artist gets a stable two-colour
- * gradient derived from their name - same artist, same tile, every time -
- * and the real photo only loads on their own page.
+ * The pipeline stores a Spotify portrait URL on every artist it matched, so a
+ * list page can show real photographs without any outbound API calls - the
+ * URLs are already in the row, and the images load lazily from Spotify's CDN.
+ * That was not true when this component was written, and the fallback is
+ * still what most of the archive shows: an artist Spotify could not match has
+ * no image, and neither did any of the 500 before the crawl ran.
+ *
+ * The fallback is a stable two-colour gradient derived from the name - same
+ * artist, same tile, every time - so a page of them looks composed rather
+ * than random, and does not shift between renders or between servers.
  */
 
 const PAIRS = [
@@ -34,7 +38,10 @@ function hash(text: string): number {
 
 /** "Tyler, The Creator" -> "TC", "Drake" -> "DR" */
 function monogram(name: string): string {
-  const words = name.replace(/[^\p{L}\p{N} ]/gu, " ").trim().split(/\s+/);
+  const words = name
+    .replace(/[^\p{L}\p{N} ]/gu, " ")
+    .trim()
+    .split(/\s+/);
   if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
   return (words[0][0] + words[1][0]).toUpperCase();
 }

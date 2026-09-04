@@ -7,17 +7,18 @@
  *
  * Apple files each artist under one clean canonical genre ("R&B/Soul",
  * "Hip-Hop/Rap"), which is what this is used for day to day. It also carries a
- * real 30-second preview file, so it stands in for Deezer whenever Deezer
- * cannot resolve an artist.
+ * real, permanent (non-expiring) 30-second preview file for a named track -
+ * which is why it still matters even though it no longer picks the track.
  *
  * What it cannot do is rank: no iTunes endpoint exposes a popularity score,
  * and both the lookup and search orderings blend relevance with recency. That
- * is why the biggest-track question goes to Deezer instead - see lib/deezer.ts.
+ * is why the biggest-track question goes to YouTube Music instead - see
+ * pipeline/youtube_music.py and lib/enrich.ts, which asks this module for a
+ * preview file per track YouTube Music already chose.
  */
 import "server-only";
 
 const SEARCH = "https://itunes.apple.com/search";
-const LOOKUP = "https://itunes.apple.com/lookup";
 const UA = "NeonArchive/1.0 (student coursework project)";
 
 export type ItunesArtist = {
@@ -25,20 +26,6 @@ export type ItunesArtist = {
   name: string;
   genre: string | null;
   url: string | null;
-};
-
-export type ItunesTrack = {
-  name: string;
-  album: string;
-  artworkUrl: string | null;
-  previewUrl: string;
-  url: string;
-  genre: string | null;
-};
-
-export type ItunesResult = {
-  artist: ItunesArtist;
-  topTrack: ItunesTrack | null;
 };
 
 /** Strips accents and invisible format characters before comparing names. */
@@ -112,15 +99,15 @@ export async function findArtist(name: string): Promise<ItunesArtist | null> {
 /**
  * A permanent preview URL for one named track.
  *
- * This exists because of a mismatch between the two sources. Deezer decides
- * *which* track is biggest - it is the only one that publishes a rank - but
- * its preview URLs are signed and expire 15 minutes after they are minted,
- * while profiles are cached for a week. Apple's preview URLs carry no
- * signature and no expiry, so once Deezer has named the track, the audio for
- * it is fetched from Apple and survives in the cache as long as the row does.
+ * YouTube Music decides *which* tracks are an artist's biggest - it has no
+ * keyless embeddable audio of its own, only a video id - so the actual
+ * 30-second file that plays inline comes from here instead. Apple's preview
+ * URLs carry no signature and no expiry, so once YouTube Music has named a
+ * track, the audio for it is fetched from Apple once and survives in the
+ * cache as long as the row does - nothing about it ever needs refreshing.
  *
- * Returns null rather than a near-miss: a wrong song is worse than the
- * caller falling back to Deezer's short-lived URL.
+ * Returns null rather than a near-miss: a wrong song is worse than no inline
+ * preview for that track (the YouTube Music link-out still works either way).
  */
 export async function findTrackPreview(
   artistName: string,
@@ -157,44 +144,5 @@ export async function findTrackPreview(
   return {
     previewUrl: match.previewUrl,
     artworkUrl: match.artworkUrl100?.replace("100x100", "600x600") ?? null,
-  };
-}
-
-/**
- * The artist, plus their biggest song that actually has a playable preview.
- *
- * Apple returns an artist's songs in popularity order, so we walk the list and
- * take the first entry carrying a previewUrl - a few tracks, usually
- * region-restricted ones, come back without one.
- */
-export async function getArtistWithTopTrack(
-  name: string,
-): Promise<ItunesResult | null> {
-  const artist = await findArtist(name);
-  if (!artist) return null;
-
-  const data = await getJson<{ results: RawResult[] }>(
-    `${LOOKUP}?id=${artist.id}&entity=song&limit=12`,
-  );
-
-  // results[0] is the artist record itself; the songs follow.
-  const song = (data?.results ?? []).find(
-    (r) => r.wrapperType === "track" && r.previewUrl,
-  );
-
-  if (!song?.previewUrl) return { artist, topTrack: null };
-
-  return {
-    artist,
-    topTrack: {
-      name: song.trackName ?? "Unknown track",
-      album: song.collectionName ?? "",
-      // artworkUrl100 is a 100px thumbnail, but Apple serves any size from the
-      // same path and 600px is sharp enough for a retina player card.
-      artworkUrl: song.artworkUrl100?.replace("100x100", "600x600") ?? null,
-      previewUrl: song.previewUrl,
-      url: song.trackViewUrl ?? "",
-      genre: song.primaryGenreName ?? null,
-    },
   };
 }

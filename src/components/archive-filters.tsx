@@ -15,7 +15,9 @@ import {
 } from "@/components/ui/select";
 
 const SORTS = [
-  { value: "streams", label: "Most streams" },
+  { value: "popularity", label: "Biggest right now" },
+  { value: "listeners", label: "Most YouTube Music listeners" },
+  { value: "streams", label: "Most streams (all-time)" },
   { value: "name", label: "A to Z" },
   { value: "debut", label: "Newest debut" },
   { value: "collab", label: "Most collaborative" },
@@ -40,9 +42,12 @@ const ANY = "__any__";
 export function ArchiveFilters({
   genres,
   countries,
+  artistCount,
 }: {
   genres: string[];
   countries: string[];
+  /** Only used for the search placeholder, so it never claims a stale total. */
+  artistCount: number;
 }) {
   const router = useRouter();
   const params = useSearchParams();
@@ -89,7 +94,7 @@ export function ArchiveFilters({
   const genre = params.get("genre") ?? ANY;
   const country = params.get("country") ?? ANY;
   const type = params.get("type") ?? ANY;
-  const sort = params.get("sort") ?? "streams";
+  const sort = params.get("sort") ?? "popularity";
   const hasFilters =
     genre !== ANY || country !== ANY || type !== ANY || search !== "";
 
@@ -106,7 +111,7 @@ export function ArchiveFilters({
         <Input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search 500 artists"
+          placeholder={`Search ${artistCount.toLocaleString("en-US")} artists`}
           aria-label="Search artists by name"
           className="bg-sw-surface/60 border-sw-line pl-9"
         />
@@ -155,7 +160,7 @@ export function ArchiveFilters({
       </Select>
 
       <Select value={sort} onValueChange={(v) => apply({ sort: v })}>
-        <SelectTrigger className="bg-sw-surface/60 border-sw-line w-[11rem]">
+        <SelectTrigger className="bg-sw-surface/60 border-sw-line w-[13rem]">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>

@@ -1,0 +1,11 @@
+# Neon Archive data pipeline.
+#   python -m pip install -r pipeline/requirements.txt
+#
+# Pinned to major versions: these are the four libraries the pipeline needs
+# and nothing here is sensitive to a patch release.
+
+spotipy>=2.24,<3          # Spotify Web API client - portraits, genre-search discovery
+ytmusicapi>=1.8,<2        # YouTube Music - ranking, tracks, no quota
+supabase>=2.10,<3         # writes the result back into public.artists
+requests>=2.32,<3         # MusicBrainz, which needs no client library
+python-dotenv>=1.0,<2     # reads the same .env.local the Next.js app uses

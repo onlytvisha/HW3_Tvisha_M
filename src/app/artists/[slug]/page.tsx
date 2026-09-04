@@ -1,4 +1,4 @@
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -22,13 +22,20 @@ import { StatTile } from "@/components/stat-tile";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { hasArchiveStats } from "@/lib/artists";
 import {
   decadeLabel,
+  formatCount,
   formatPct,
   formatStreams,
   formatStreamsLong,
 } from "@/lib/format";
-import { getArtistBySlug, getRelatedArtists } from "@/lib/queries";
+import { genreHref } from "@/lib/genres";
+import {
+  getArchiveSummary,
+  getArtistBySlug,
+  getRelatedArtists,
+} from "@/lib/queries";
 
 export const revalidate = 3600;
 
@@ -41,12 +48,21 @@ export async function generateMetadata({
   const artist = await getArtistBySlug(slug);
   if (!artist) return { title: "Artist not found" };
 
+  const where = [artist.primary_genre, artist.country]
+    .filter(Boolean)
+    .join(" from ");
+  const rank =
+    artist.popularity_rank != null
+      ? ` Ranked #${artist.popularity_rank} in the archive right now`
+      : "";
+
   return {
     title: artist.name,
     description:
-      `${artist.name} - ${artist.primary_genre} from ${artist.country}, ` +
-      `debuted ${artist.debut_year}. Ranked #${artist.stream_rank} of 500 ` +
-      `with ${formatStreams(artist.total_streams_m)} lifetime streams.`,
+      `${artist.name}${where ? ` - ${where}` : ""}.${rank}` +
+      (artist.monthly_listeners != null
+        ? ` with ${formatCount(artist.monthly_listeners)} YouTube Music listeners.`
+        : "."),
   };
 }
 
@@ -60,14 +76,25 @@ export default async function ArtistPage({
   const artist = await getArtistBySlug(slug);
   if (!artist) notFound();
 
-  const related = await getRelatedArtists(artist);
+  const [related, summary] = await Promise.all([
+    getRelatedArtists(artist),
+    getArchiveSummary(),
+  ]);
 
-  const total = Number(artist.total_streams_m);
+  const archived = hasArchiveStats(artist);
+  const total = Number(artist.total_streams_m ?? 0);
   const lead = Number(artist.lead_streams_m ?? 0);
   const feature = Number(artist.feature_streams_m ?? 0);
   const solo = Number(artist.solo_streams_m ?? 0);
   const collab = Number(artist.collab_streams_m ?? 0);
-  const percentile = Math.round((1 - (artist.stream_rank - 1) / 500) * 100);
+
+  // Against the whole archive, not a hardcoded 500 - the table is however big
+  // the last pipeline run left it.
+  const size = summary.artistCount || 1;
+  const percentile =
+    artist.popularity_rank != null
+      ? Math.max(1, Math.round((artist.popularity_rank / size) * 100))
+      : null;
 
   return (
     <article className="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-14">
@@ -91,18 +118,49 @@ export default async function ArtistPage({
 
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <Badge className="bg-sw-pink/15 text-sw-pink border-sw-pink/40 border">
-              #{artist.stream_rank} of 500
-            </Badge>
-            <Badge
-              variant="outline"
-              className="border-sw-cyan/40 text-sw-cyan bg-sw-cyan/10"
-            >
-              {artist.primary_genre}
-            </Badge>
-            <Badge variant="outline" className="border-sw-line text-sw-text-dim">
-              {artist.artist_type}
-            </Badge>
+            {artist.popularity_rank != null && (
+              <Badge className="bg-sw-pink/15 text-sw-pink border-sw-pink/40 border">
+                #{artist.popularity_rank} of{" "}
+                {summary.artistCount.toLocaleString("en-US")} right now
+              </Badge>
+            )}
+
+            {/* The genre badge is a link: it is the one word on this page that
+                describes a group rather than this artist, so it should lead to
+                the group. */}
+            {artist.primary_genre && (
+              <Link
+                href={genreHref(artist.primary_genre)}
+                className="focus-visible:ring-ring/60 rounded-md focus-visible:ring-2 focus-visible:outline-none"
+              >
+                <Badge
+                  variant="outline"
+                  className="border-sw-cyan/40 text-sw-cyan bg-sw-cyan/10 hover:bg-sw-cyan/20 gap-1 transition-colors"
+                >
+                  {artist.primary_genre}
+                  <ChevronRight className="size-3" aria-hidden="true" />
+                </Badge>
+              </Link>
+            )}
+
+            {artist.artist_type && (
+              <Badge
+                variant="outline"
+                className="border-sw-line text-sw-text-dim"
+              >
+                {artist.artist_type}
+              </Badge>
+            )}
+
+            {!archived && (
+              <Badge
+                variant="outline"
+                className="border-sw-amber/40 text-sw-amber bg-sw-amber/10 font-normal"
+                title="Found through Spotify rather than the original Kaggle dataset, so the historical stream figures do not exist for them"
+              >
+                live entry
+              </Badge>
+            )}
           </div>
 
           <h1 className="mt-3 text-4xl leading-tight font-bold sm:text-5xl">
@@ -110,8 +168,13 @@ export default async function ArtistPage({
           </h1>
 
           <p className="text-sw-text-dim mt-2 text-sm">
-            {artist.country} &middot; sings in {artist.language} &middot;
-            debuted <span className="tnum">{artist.debut_year}</span>
+            {[
+              artist.country,
+              artist.language ? `sings in ${artist.language}` : null,
+              artist.debut_year ? `debuted ${artist.debut_year}` : null,
+            ]
+              .filter(Boolean)
+              .join(" · ")}
           </p>
 
           <Suspense fallback={<ArtistSignalsSkeleton />}>
@@ -128,73 +191,156 @@ export default async function ArtistPage({
 
       <div className="mt-14 grid gap-10 lg:grid-cols-[1fr_18rem]">
         <div>
+          {/* ------------------------------------------------ live figures */}
           <div className="flex items-baseline gap-3">
-            <h2 className="text-2xl font-bold">By the numbers</h2>
+            <h2 className="text-2xl font-bold">Right now</h2>
             <Badge
               variant="outline"
-              className="border-sw-amber/40 text-sw-amber bg-sw-amber/10 font-normal"
+              className="border-sw-mint/40 text-sw-mint bg-sw-mint/10 font-normal"
             >
-              dataset snapshot
+              live from YouTube Music
             </Badge>
           </div>
           <p className="text-sw-text-dim mt-1 text-sm">
-            Lifetime totals as recorded in the source dataset. Every figure is
-            a cumulative count, not a current rate.
+            How many people listen to {artist.name} on YouTube Music each month,
+            and where that puts them against everyone else in the archive. The
+            score is this archive&rsquo;s own &mdash; a percentile of that
+            listener count, not a number YouTube Music itself publishes.
           </p>
 
-          <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
             <StatTile
-              value={formatStreams(total)}
-              label="total streams"
-              hint={formatStreamsLong(total)}
+              value={formatCount(artist.monthly_listeners)}
+              label="YouTube Music listeners"
+              hint={
+                artist.monthly_listeners != null
+                  ? `${artist.monthly_listeners.toLocaleString("en-US")} monthly listeners`
+                  : undefined
+              }
               accent="pink"
             />
             <StatTile
-              value={formatStreams(lead)}
-              label="as lead artist"
-              hint={formatStreamsLong(lead)}
+              value={
+                artist.popularity_rank != null
+                  ? `#${artist.popularity_rank}`
+                  : "--"
+              }
+              label={
+                percentile != null
+                  ? `top ${percentile}% of the archive`
+                  : "unranked"
+              }
               accent="cyan"
             />
             <StatTile
-              value={formatStreams(feature)}
-              label="as a feature"
-              hint={formatStreamsLong(feature)}
+              value={artist.popularity != null ? `${artist.popularity}` : "--"}
+              label="archive score, 0-100"
+              hint="This artist's monthly listeners as a percentile of the archive: 100 is the most-listened-to act here, 50 the median."
               accent="amber"
             />
-            <StatTile
-              value={`#${artist.stream_rank}`}
-              label={`top ${100 - percentile + 1}% of the archive`}
-              accent="mint"
-            />
           </div>
 
-          <div className="mt-8 space-y-6">
-            <SplitBar
-              title="Lead versus featured"
-              caption="Streams on tracks billed to them, against streams on someone else's track they appear on."
-              segments={[
-                { label: "Lead", value: lead, color: "var(--chart-2)" },
-                { label: "Feature", value: feature, color: "var(--chart-3)" },
-              ]}
-            />
+          {/* --------------------------------------- the frozen dataset */}
+          {archived ? (
+            <>
+              <div className="mt-12 flex items-baseline gap-3">
+                <h2 className="text-2xl font-bold">In the dataset</h2>
+                <Badge
+                  variant="outline"
+                  className="border-sw-amber/40 text-sw-amber bg-sw-amber/10 font-normal"
+                >
+                  historical snapshot
+                </Badge>
+              </div>
+              <p className="text-sw-text-dim mt-1 text-sm">
+                Lifetime totals as recorded when the Kaggle dataset was
+                compiled. Cumulative counts, frozen &mdash; not a current rate,
+                and not comparable with the live figures above.
+              </p>
 
-            <SplitBar
-              title="Solo versus collaborative"
-              caption="Streams on tracks they are the only credited artist on, against everything with a second name on it."
-              segments={[
-                { label: "Solo", value: solo, color: "var(--chart-4)" },
-                {
-                  label: "Collaborative",
-                  value: collab,
-                  // chart-5, not chart-1: slots 4 and 1 are the one pair in
-                  // the ramp that collapses under deuteranopia (dE 5.6),
-                  // and this bar puts them directly against each other.
-                  // 4 against 5 separates cleanly (dE 21.3).
-                  color: "var(--chart-5)",
-                },
-              ]}
-            />
-          </div>
+              <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <StatTile
+                  value={formatStreams(total)}
+                  label="total streams"
+                  hint={formatStreamsLong(total)}
+                  accent="pink"
+                />
+                <StatTile
+                  value={formatStreams(lead)}
+                  label="as lead artist"
+                  hint={formatStreamsLong(lead)}
+                  accent="cyan"
+                />
+                <StatTile
+                  value={formatStreams(feature)}
+                  label="as a feature"
+                  hint={formatStreamsLong(feature)}
+                  accent="amber"
+                />
+                <StatTile
+                  value={
+                    artist.stream_rank != null ? `#${artist.stream_rank}` : "--"
+                  }
+                  label="all-time rank, of 500"
+                  accent="mint"
+                />
+              </div>
+
+              <div className="mt-8 space-y-6">
+                <SplitBar
+                  title="Lead versus featured"
+                  caption="Streams on tracks billed to them, against streams on someone else's track they appear on."
+                  segments={[
+                    { label: "Lead", value: lead, color: "var(--chart-2)" },
+                    {
+                      label: "Feature",
+                      value: feature,
+                      color: "var(--chart-3)",
+                    },
+                  ]}
+                />
+
+                <SplitBar
+                  title="Solo versus collaborative"
+                  caption="Streams on tracks they are the only credited artist on, against everything with a second name on it."
+                  segments={[
+                    { label: "Solo", value: solo, color: "var(--chart-4)" },
+                    {
+                      label: "Collaborative",
+                      value: collab,
+                      // chart-5, not chart-1: slots 4 and 1 are the one pair in
+                      // the ramp that collapses under deuteranopia (dE 5.6),
+                      // and this bar puts them directly against each other.
+                      // 4 against 5 separates cleanly (dE 21.3).
+                      color: "var(--chart-5)",
+                    },
+                  ]}
+                />
+              </div>
+            </>
+          ) : (
+            <Card className="border-sw-line/60 mt-12 border-dashed bg-transparent">
+              <CardContent className="px-5">
+                <h2 className="text-sm font-semibold tracking-wide uppercase">
+                  No historical figures
+                </h2>
+                <p className="text-sw-text-dim mt-3 text-sm leading-relaxed">
+                  {artist.name} came into the archive through Spotify rather
+                  than the Kaggle dataset, so there are no lifetime stream
+                  totals or solo-versus-collaborative splits for them. No
+                  streaming service publishes a per-artist lifetime play count
+                  through a public API, so these cannot be filled in &mdash;
+                  only the 500 acts the dataset covered have them.
+                </p>
+                <Link
+                  href="/about"
+                  className="text-sw-cyan hover:text-sw-cyan/80 mt-3 inline-block text-xs underline underline-offset-2 transition-colors"
+                >
+                  How the two halves of the archive differ
+                </Link>
+              </CardContent>
+            </Card>
+          )}
 
           <Card className="sw-card mt-8">
             <CardContent className="px-5">
@@ -204,16 +350,40 @@ export default async function ArtistPage({
               <Separator className="bg-sw-line/60 my-4" />
 
               <dl className="grid grid-cols-2 gap-x-6 gap-y-4 text-sm sm:grid-cols-3">
-                <Fact label="Archive rank">
-                  <span className="tnum">#{artist.stream_rank}</span> of 500
+                <Fact label="Live rank">
+                  {artist.popularity_rank != null ? (
+                    <>
+                      <span className="tnum">#{artist.popularity_rank}</span> of{" "}
+                      {summary.artistCount.toLocaleString("en-US")}
+                    </>
+                  ) : (
+                    "--"
+                  )}
                 </Fact>
-                <Fact label="Primary genre">{artist.primary_genre}</Fact>
-                <Fact label="Country of origin">{artist.country}</Fact>
-                <Fact label="Primary language">{artist.language}</Fact>
-                <Fact label="Act type">{artist.artist_type}</Fact>
+                <Fact label="Primary genre">
+                  {artist.primary_genre ? (
+                    <Link
+                      href={genreHref(artist.primary_genre)}
+                      className="hover:text-sw-cyan underline-offset-2 transition-colors hover:underline"
+                    >
+                      {artist.primary_genre}
+                    </Link>
+                  ) : (
+                    "--"
+                  )}
+                </Fact>
+                <Fact label="Country of origin">{artist.country ?? "--"}</Fact>
+                <Fact label="Primary language">{artist.language ?? "--"}</Fact>
+                <Fact label="Act type">{artist.artist_type ?? "--"}</Fact>
                 <Fact label="Debut">
-                  <span className="tnum">{artist.debut_year}</span> (
-                  {decadeLabel(artist.debut_year)})
+                  {artist.debut_year != null ? (
+                    <>
+                      <span className="tnum">{artist.debut_year}</span> (
+                      {decadeLabel(artist.debut_year)})
+                    </>
+                  ) : (
+                    "--"
+                  )}
                 </Fact>
                 <Fact label="Solo share">
                   <span className="tnum">{formatPct(artist.solo_pct)}</span>
@@ -221,7 +391,7 @@ export default async function ArtistPage({
                 <Fact label="Collaborative share">
                   <span className="tnum">{formatPct(artist.collab_pct)}</span>
                 </Fact>
-                <Fact label="Listed as">{artist.sex}</Fact>
+                <Fact label="Listed as">{artist.sex ?? "--"}</Fact>
               </dl>
             </CardContent>
           </Card>
@@ -235,9 +405,9 @@ export default async function ArtistPage({
                 Two clocks
               </h3>
               <p className="text-sw-text-dim mt-3 text-sm leading-relaxed">
-                The track, photo, follower count and genre tags above are
-                fetched live. The stream totals are frozen at whenever the
-                dataset was compiled, so treat them as history, not as
+                The listener count, archive score, tracks, photo and genre tags
+                above are fetched live. Any stream totals are frozen at whenever
+                the dataset was compiled, so treat those as history, not as
                 today&rsquo;s number.
               </p>
               <Link
@@ -249,12 +419,20 @@ export default async function ArtistPage({
             </CardContent>
           </Card>
 
-          {related.length > 0 && (
+          {related.length > 0 && artist.primary_genre && (
             <Card className="sw-card">
               <CardContent className="px-5">
-                <h3 className="text-sm font-semibold tracking-wide uppercase">
-                  More {artist.primary_genre}
-                </h3>
+                <div className="flex items-baseline justify-between gap-2">
+                  <h3 className="text-sm font-semibold tracking-wide uppercase">
+                    More {artist.primary_genre}
+                  </h3>
+                  <Link
+                    href={genreHref(artist.primary_genre)}
+                    className="text-sw-cyan hover:text-sw-cyan/80 shrink-0 text-xs transition-colors"
+                  >
+                    See all
+                  </Link>
+                </div>
                 <Separator className="bg-sw-line/60 my-4" />
 
                 <ul className="space-y-3">
@@ -266,6 +444,7 @@ export default async function ArtistPage({
                       >
                         <ArtistAvatar
                           name={other.name}
+                          imageUrl={other.image_url}
                           className="size-9 shrink-0 rounded-md text-xs"
                         />
                         <div className="min-w-0 flex-1">
@@ -273,7 +452,7 @@ export default async function ArtistPage({
                             {other.name}
                           </p>
                           <p className="tnum text-sw-text-dim text-xs">
-                            {formatStreams(other.total_streams_m)}
+                            {formatCount(other.monthly_listeners)} listeners
                           </p>
                         </div>
                       </Link>

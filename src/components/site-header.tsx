@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 const NAV = [
   { href: "/", label: "Home" },
   { href: "/artists", label: "Archive" },
+  { href: "/genres", label: "Genres" },
   { href: "/charts", label: "Charts" },
   { href: "/about", label: "About the data" },
 ] as const;
@@ -35,10 +36,10 @@ export function SiteHeader() {
     <header className="border-sw-line/60 bg-sw-base/80 sticky top-0 z-50 border-b backdrop-blur-xl">
       <div className="mx-auto flex h-16 max-w-6xl items-center gap-6 px-4 sm:px-6">
         <Link href="/" className="group flex items-baseline gap-2">
-          <span className="font-heading sw-glow-pink text-sw-pink text-lg font-bold tracking-[0.2em] uppercase">
+          <span className="font-heading text-sw-pink text-lg font-bold tracking-[0.2em] uppercase">
             Neon
           </span>
-          <span className="font-heading sw-glow-cyan text-sw-cyan text-lg font-bold tracking-[0.2em] uppercase">
+          <span className="font-heading text-sw-cyan text-lg font-bold tracking-[0.2em] uppercase">
             Archive
           </span>
         </Link>

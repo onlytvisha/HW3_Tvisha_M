@@ -11,7 +11,7 @@ import {
 } from "recharts";
 
 import { ChartTooltip } from "@/components/charts/chart-tooltip";
-import { formatStreams } from "@/lib/format";
+import { formatCount } from "@/lib/format";
 
 export type RankedRow = {
   label: string;
@@ -34,12 +34,16 @@ export type RankedRow = {
  */
 export function RankedBars({
   data,
-  valueLabel = "Streams",
+  valueLabel = "Listeners",
   color = "var(--chart-1)",
+  format = formatCount,
 }: {
   data: RankedRow[];
   valueLabel?: string;
   color?: string;
+  /** Axis and tooltip formatter. Listeners are a plain count; the dataset's
+      stream figures are in millions and need formatStreams instead. */
+  format?: (value: number) => string;
 }) {
   return (
     <ResponsiveContainer width="100%" height={Math.max(300, data.length * 30)}>
@@ -56,7 +60,7 @@ export function RankedBars({
         />
         <XAxis
           type="number"
-          tickFormatter={(v: number) => formatStreams(v)}
+          tickFormatter={(v: number) => format(v)}
           stroke="var(--sw-text-dim)"
           fontSize={11}
           tickLine={false}
@@ -76,7 +80,7 @@ export function RankedBars({
           content={
             <ChartTooltip
               rows={[
-                { key: "value", label: valueLabel, format: formatStreams },
+                { key: "value", label: valueLabel, format },
                 { key: "artists", label: "Artists in set" },
               ]}
             />
